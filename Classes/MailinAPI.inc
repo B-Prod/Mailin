@@ -32,9 +32,9 @@ class MailinAPI {
   const ACTION_FOLDER_DELETE = 'DELETE-FOLDER';
 
   /**
-   * Action that retrieves the mailing lists.
+   * Action that retrieves the folder list and their lists.
    */
-  const ACTION_LIST_GET = 'DISPLAYLISTDATA';
+  const ACTION_FOLDER_GET = 'DISPLAY-FOLDERS-LISTS';
 
   /**
    * Action that creates a new mailing list.
@@ -99,6 +99,16 @@ class MailinAPI {
   /**
    * @} End of "defgroup API actions".
    */
+
+  /**
+   * The folder type name.
+   */
+  const TYPE_FOLDER = 'FOLDER';
+
+  /**
+   * The list type name.
+   */
+  const TYPE_LIST = 'LIST';
 
   /**
    * Target all the campaign recipients.
@@ -224,15 +234,13 @@ class MailinAPI {
    *
    * @param $id
    *   The list ID.
-   * @param $name
-   *   The list name.
    *
    * @return boolean
    *   TRUE on success, otherwise FALSE.
    */
-  public function deleteList($id, $name) {
-    $response = $this->query(self::ACTION_FOLDER_DELETE, array('listname' => $name, 'list_id' => $id));
-    return $response->isSuccessful() && $response->getResult() === 'success';
+  public function deleteList($id) {
+    $response = $this->query(self::ACTION_FOLDER_DELETE, array('list_id' => $id));
+    return $response->getResult() === 'success';
   }
 
   /**
@@ -243,53 +251,86 @@ class MailinAPI {
    *
    * @param $id
    *   The folder ID.
-   * @param $name
-   *   The folder name.
    *
    * @return boolean
    *   TRUE on success, otherwise FALSE.
    */
-  public function deleteFolder($id, $name) {
-    return $this->deleteList($id, $name);
+  public function deleteFolder($id) {
+    return $this->deleteList($id);
+  }
+
+  /**
+   * Get the existing folders with their lists.
+   *
+   * @param $ids
+   *   An array of folder and/or list IDs for which retrieve information.
+   *
+   * @return mixed
+   *   An array of the existing folders and lists on success or FALSE.
+   */
+  public function getFolders(array $ids = array()) {
+    return $this->query(self::ACTION_FOLDER_GET, array('ids' => $ids))->getData();
+  }
+
+  /**
+   * Get a folder from its ID.
+   *
+   * @param $id
+   *   The folder ID.
+   *
+   * @return mixed
+   *   The folder data or FALSE on failure.
+   */
+  public function findFolder($id) {
+    if ($folders = $this->getFolders(array($id))) {
+      if (isset($folders[$id]) && $folders[$id]['type'] === self::TYPE_FOLDER) {
+        $folders[$id]['id'] = $id;
+        return $folders[$id];
+      }
+    }
+
+    return FALSE;
   }
 
   /**
    * Get the existing mailing lists.
    *
-   * @param $lists
+   * @param $ids
    *   An array of list IDs for which retrieve information.
    *
    * @return mixed
    *   An array of the existing lists on success or FALSE.
    */
-  public function getLists(array $lists = array()){
-    $result = $this->query(self::ACTION_LIST_GET, array('listid' => $lists))->getResult();
+  public function getLists(array $ids = array()) {
+    $lists = array();
 
-    // An empty string is returned when there are no list.
-    return is_array($result) ? $result : array();
+    if ($result = $this->getFolders($ids)) {
+      foreach ($result as $fid => $folder) {
+        if (!empty($folder['lists'])) {
+          $lists = array_merge($lists, $folder['lists']);
+        }
+      }//end foreach
+    }
+
+    return $lists;
   }
 
   /**
-   * Check if a given list exist in Mailin server.
+   * Get a mailin list from its ID.
    *
-   * @param $listId
-   *   The mailing list ID.
-   * @param $reset
-   *   When set to TRUE, a new API call against is performed against
-   *   Mailinserver to update the mailing lists.
+   * @param $id
+   *   The list ID.
+   *
+   * @return mixed
+   *   The list data or FALSE on failure.
    */
-  public function findList($listId, $reset = FALSE) {
-    static $lists;
-
-    if (!isset($lists) || $reset) {
-      $lists = $this->getLists();
-    }
-
-    foreach ($lists as $list) {
-      if ($list['id'] == $listId) {
-        return TRUE;
+  public function findList($id) {
+    if ($lists = $this->getFolders(array($id))) {
+      if (isset($lists[$id]) && $lists[$id]['type'] === self::TYPE_LIST) {
+        $lists[$id]['id'] = $id;
+        return $lists[$id];
       }
-    }//end foreach
+    }
 
     return FALSE;
   }
