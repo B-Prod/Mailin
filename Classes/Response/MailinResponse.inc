@@ -32,8 +32,8 @@ class MailinResponse implements MailinResponseInterface, \ArrayAccess {
    * @inheritdoc
    */
   public function __construct($data) {
-    if (!$this->data = json_decode($data, TRUE)) {
-      // Ensure the data property is still always an array.
+    if (FALSE === ($this->data = json_decode($data, TRUE))) {
+      // Ensure the data property is always an array.
       $this->data = array();
     }
     elseif (empty($this['errorMsg'])) {
@@ -51,8 +51,8 @@ class MailinResponse implements MailinResponseInterface, \ArrayAccess {
   /**
    * @inheritdoc
    */
-  public function getResult() {
-    return ($this->success && isset($this['result'])) ? $this['result'] : FALSE;
+  public function getResult($expected_key = 'result') {
+    return ($this->success && isset($this[$expected_key])) ? $this[$expected_key] : FALSE;
   }
 
   /**
@@ -60,6 +60,13 @@ class MailinResponse implements MailinResponseInterface, \ArrayAccess {
    */
   public function getData() {
     return $this->data;
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public function getDataOnSuccess() {
+    return $this->success ? $this->data : array();
   }
 
   /**

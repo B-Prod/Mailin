@@ -44,7 +44,7 @@ class MailinLogTest extends \PHPUnit_Framework_TestCase {
    * @inheritdoc
    */
   protected function setUp() {
-    $this->mailinAPI = new MailinAPI(MailinAPITest::API_KEY);;
+    $this->mailinAPI = new MailinAPI(MailinAPITest::API_KEY);
     self::ensureDefaultProperties();
   }
 

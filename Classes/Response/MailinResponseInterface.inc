@@ -41,6 +41,14 @@ interface MailinResponseInterface {
   public function getData();
 
   /**
+   * Get the response data only if the response is successful.
+   *
+   * @return array
+   *   The data or en empty array on failure.
+   */
+  public function getDataOnSuccess();
+
+  /**
    * Get the error message if any.
    */
   public function getErrorMessage();
