@@ -282,6 +282,96 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
+   * @covers Mailin\MailinAPI::addAttributes
+   */
+  public function testAddAttributes() {
+    $this->markTestIncomplete();
+  }
+
+  /**
+   * @covers Mailin\MailinAPI::deleteAttributes
+   */
+  public function testDeleteAttributes() {
+    $this->markTestIncomplete();
+  }
+
+  /**
+   * @covers Mailin\MailinAPI::saveUser
+   * @depends testAddList
+   */
+  public function testSaveUser(array $foldersLists) {
+    $listId = key(reset($foldersLists));
+
+    $userEmail = \MailinTestHelper::randomEmail();
+    $userId = $this->mailinAPI->saveUser($userEmail, array(), array($listId));
+    $this->assertTrue(is_numeric($userId), "Creation of user $userEmail failed.");
+    $result = $this->mailinAPI->getUserStatus(array($userEmail));
+    $this->assertInternalType('array', $result, "Impossible to retrieve user $userEmail related data.");
+    $this->assertEquals(reset($result), 0, "User $userEmail status is incorrect.");
+    $this->assertCallcount(2);
+
+    // Create now a user who is blacklisted.
+    $userEmail2 = \MailinTestHelper::randomEmail();
+    $userId2 = $this->mailinAPI->saveUser($userEmail2, array(), array($listId), TRUE);
+    $this->assertTrue(is_numeric($userId2), "Creation of user $userEmail2 failed.");
+    $result = $this->mailinAPI->getUserStatus(array($userEmail2));
+    $this->assertInternalType('array', $result, "Impossible to retrieve user $userEmail2 related data.");
+    $this->assertEquals(reset($result), 1, "User $userEmail2 status is incorrect.");
+    $this->assertCallcount(2);
+
+    //$this->markTestIncomplete('We should test user creation using attributes, but there is no implemented method that allows to retrieve those data from Mailin server yet.');
+
+    return array(
+      $userEmail => array('id' => $userId, 'listId' => $listId, 'status' => 0),
+      $userEmail2 => array('id' => $userId2, 'listId' => $listId, 'status' => 1),
+    );
+  }
+
+  /**
+   * @covers Mailin\MailinAPI::saveUsers
+   */
+  public function testSaveUsers() {
+    $this->markTestIncomplete();
+  }
+
+  /**
+   * @covers Mailin\MailinAPI::getUserStatus
+   * @depends testSaveUser
+   */
+  public function testGetUserStatus(array $users) {
+    $expected = array_map(function ($user) { return $user['status']; }, $users);
+    $results = $this->mailinAPI->getUserStatus(array_keys($users));
+    ksort($expected);
+    ksort($results);
+    $this->assertInternalType('array', $results, "Users status retrieve operation failed.");
+    $this->assertEquals($results, $expected, 'Retrieved results do not match expected values.');
+    $this->assertCallcount();
+  }
+
+  /**
+   * @covers Mailin\MailinAPI::blockUser
+   * @depends testSaveUser
+   */
+  public function testBlockUser(array $users) {
+    list($userEmail, ) = each($users);
+    $this->assertTrue($this->mailinAPI->blockUser($userEmail), "The user $userEmail was blacklisted.");
+    $this->assertEquals($this->mailinAPI->getUserStatus(array($userEmail)), array($userEmail => 1), 'The user status is wrong.');
+    $this->assertCallcount(2);
+  }
+
+  /**
+   * @covers Mailin\MailinAPI::unblockUser
+   * @depends testSaveUser
+   * @depends testBlockUser
+   */
+  public function testUnblockUser(array $users) {
+    list($userEmail, ) = each($users);
+    $this->assertTrue($this->mailinAPI->unblockUser($userEmail), "The user $userEmail was removed from blacklist.");
+    $this->assertEquals($this->mailinAPI->getUserStatus(array($userEmail)), array($userEmail => 0), 'The user status is wrong.');
+    $this->assertCallcount(2);
+  }
+
+  /**
    * @covers Mailin\MailinAPI::deleteList
    * @depends testAddList
    * @depends testFindList

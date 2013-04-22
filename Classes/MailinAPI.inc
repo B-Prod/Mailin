@@ -540,10 +540,10 @@ class MailinAPI {
    */
   public function getUserStatus(array $emails = array()) {
     $emails['_separator_'] = ',';
-    $response = $this->request(self::ACTION_USER_STATUS, array('email' => $emails));
 
-    if ($response->success() && isset($response['result'])) {
-      return $response['result'] + array_fill_keys($emails, -1);
+    if ($users = $this->query(self::ACTION_USER_STATUS, array('email' => $emails))->getResult()) {
+      unset($emails['_separator_']);
+      return $users + array_fill_keys($emails, -1);
     }
 
     return FALSE;
@@ -561,7 +561,7 @@ class MailinAPI {
    * @see http://ressources.mailin.fr/utilisateur-unblacklist/?lang=en
    */
   public function unblockUser($email) {
-    return $this->query(self::ACTION_USER_UNBLOCK, array('email' => $emails))->getResult() === 'OK';
+    return $this->query(self::ACTION_USER_UNBLOCK, array('email' => $email))->getResult() === 'OK';
   }
 
   /**
@@ -576,7 +576,7 @@ class MailinAPI {
    * @see http://ressources.mailin.fr/utilisateur-liste-noire/?lang=en
    */
   public function blockUser($email) {
-    return $this->query(self::ACTION_USER_BLOCK, array('email' => $emails))->getResult() === 'OK';
+    return $this->query(self::ACTION_USER_BLOCK, array('email' => $email))->getResult() === 'OK';
   }
 
   /**
@@ -589,16 +589,15 @@ class MailinAPI {
    *
    * @see http://ressources.mailin.fr/exporter-des-utilisateurs/?lang=en
    */
-  public function exportUsers(array $filter, $notifyUrl = NULL) {
-    // @todo how are built the filters?
-
-    $response = $this->request(self::ACTION_USER_EXPORT, array('filter' => $filter, 'notify_url' => $notifyUrl));
-
-    // @todo process response.
-  }
+  //public function exportUsers(array $filter, $notifyUrl = NULL) {
+    // Not implemented yet.
+  //}
 
   /**
    * Add or update a user.
+   *
+   * @todo Although the "listid" parameter is defined as optional in the
+   * Mailin documentation, it is indeed required to allow user creation.
    *
    * @param $email
    *   The user e-mail address.
@@ -626,8 +625,8 @@ class MailinAPI {
       $query['attributes_value'] = implode('|', $attributes);
     }//end if
 
-    $response = $this->query(self::ACTION_USER_SAVE, $query)->getResult();
-    return ($response->success() && isset($response['id'])) ? $response['id'] : FALSE;
+    $result = $this->query(self::ACTION_USER_SAVE, $query)->getResult();
+    return (is_array($result) && isset($result['id'])) ? $result['id'] : FALSE;
   }
 
   /**
@@ -642,26 +641,7 @@ class MailinAPI {
    * @see http://ressources.mailin.fr/ajout-de-plusieurs-utilisateurs/?lang=en
    */
   public function saveUsers(array $users, array $lists = array()) {
-    $response = $this->query(self::ACTION_USER_ADD_MULTIPLE, array('attributes' => json_encode($users), 'listid' => $lists));
-    return !empty($response['result']) && $response['result'] === 'OK';
-  }
-
-  /**
-  * put your comment there...
-  *
-  * @param mixed $campaignId
-  * @param mixed $recipientType
-  *
-  * @see http://ressources.mailin.fr/exporter-les-donnees-dune-campagne/?lang=en
-  */
-  public function getCampaignRecipients($campaignId, $recipientType = self::RECIPIENT_TYPE_ALL) {
-    $data = array(
-      'id' => $campaignId,
-      'webaction' => 'ACTION_CAMPAIGN_USER_STATS',
-      'type' => $recipientType,
-    );
-
-    $this->request($data);
+    return $this->query(self::ACTION_USER_ADD_MULTIPLE, array('attributes' => json_encode($users), 'listid' => $lists))->getResult() === 'OK';
   }
 
 }

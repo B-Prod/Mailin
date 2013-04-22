@@ -14,8 +14,20 @@ include dirname(__DIR__) . '/mailin.php';
  */
 abstract class MailinTestHelper {
 
-  public static function randomName($length = 8, $prefix = 'test-') {
-    $values = array_merge(range(65, 90), range(97, 122), range(48, 57));
+  protected static $emailDomain = 'test.mailin.fr';
+
+  /**
+   * Create a random string that only uses alphbetical and numeric characters.
+   *
+   * The string always begins by a lowercase character.
+   */
+  public static function randomName($length = 8, $prefix = 'test-', $lowercaseOnly = FALSE) {
+    $values = array_merge(range(97, 122), range(48, 57));
+
+    if (!$lowercaseOnly) {
+      $values = array_merge(range(65, 90), $values);
+    }
+
     $max = count($values) - 1;
     $str = chr(mt_rand(97, 122));
     for ($i = 1; $i < $length; $i++) {
@@ -24,4 +36,10 @@ abstract class MailinTestHelper {
     return $prefix . $str;
   }
 
+  /**
+   * Create a random e-mail address.
+   */
+  public static function randomEmail($length = 8) {
+    return self::randomName($length, '', TRUE) . '@' . self::$emailDomain;
+  }
 }
