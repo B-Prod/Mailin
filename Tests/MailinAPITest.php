@@ -282,17 +282,140 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
+   * @covers Mailin\MailinAPI::getAttributes
+   */
+  public function testGetAttributes() {
+    $result = $this->mailinAPI->getAttributes();
+    $this->assertInternalType('array', $result);
+
+    // There is at least some locked attributes, so the result should not
+    // be empty.
+    $this->assertNotEmpty($result, 'Getting attribute list failed.');
+    $this->assertCallcount(1);
+
+    $this->assertEquals(array(), $this->mailinAPI->getAttributes(array('unexisting-type')));
+    $this->assertCallcount(0);
+  }
+
+  /**
    * @covers Mailin\MailinAPI::addAttributes
    */
   public function testAddAttributes() {
-    $this->markTestIncomplete();
+    $attributes = array(
+      MailinAPI::ATTRIBUTE_NORMAL => array(
+        \MailinTestHelper::randomName(8, 'TEST-', 1, FALSE, '_-') => MailinAPI::ATTRIBUTE_DATA_TYPE_TEXT,
+        \MailinTestHelper::randomName(8, 'TEST-', 1, FALSE, '_-') => MailinAPI::ATTRIBUTE_DATA_TYPE_NUMBER,
+        \MailinTestHelper::randomName(8, 'TEST-', 1, FALSE, '_-') => MailinAPI::ATTRIBUTE_DATA_TYPE_DATE,
+      ),
+      MailinAPI::ATTRIBUTE_CATEGORY => array(
+        \MailinTestHelper::randomName(8, 'TEST-', 1, FALSE, '_-') => array(
+          \MailinTestHelper::randomName(),
+          \MailinTestHelper::randomName(),
+          \MailinTestHelper::randomName(),
+        ),
+      ),
+    );
+
+    $this->assertTrue($this->mailinAPI->addAttributes($attributes), 'Attributes creation failed.');
+    $this->assertCallcount();
+
+    $results = $this->mailinAPI->getAttributes(array(MailinAPI::ATTRIBUTE_NORMAL, MailinAPI::ATTRIBUTE_CATEGORY));
+    $this->assertTrue(sizeof($result) === 2, 'Getting attribute list failed.');
+    $this->assertCallcount(1);
+
+    $missing = $attributes;
+
+    // Check attributes correspondence.
+    foreach ($results as $attributeType => $fetchedAttributes) {
+      foreach ($fetchedAttributes as $attribute) {
+        if (array_key_exists($attribute['name'], $attributes[$attributeType]) && strtoupper($attribute['type']) === $attributes[$attributeType][$attribute['name']]) {
+          // Some further checks are necessary for categories.
+          if ($attributeType === MailinAPI::ATTRIBUTE_CATEGORY) {
+            $labels = array_map(function($v) { return $v['label']; }, $attribute['enumeration']);
+
+            if (array_diff($attributes[$attributeType][$attribute['name']], $labels)) {
+              continue;
+            }
+          }
+
+          unset($missing[$attributeType][$attribute['name']]);
+        }
+      }//end foreach
+    }//end foreach
+
+    $this->assertEmpty($missing, 'Some attributes have not been created.');
+
+    // Try to save invalid attributes.
+    $validAttributeName = \MailinTestHelper::randomName(8, 'TEST-', 1, FALSE, '_-');
+    $invalid = array(
+      array(
+        'attribute' => array(),
+        'message' => 'Attribute creation using an invalid attribute type should fail.',
+      ),
+      array(
+        'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array('not-array')),
+        'message' => 'Attribute creation using an invalid definition should fail.',
+      ),
+      array(
+        'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array(
+          'INVALID NAME' => MailinAPI::ATTRIBUTE_DATA_TYPE_TEXT,
+        )),
+        'message' => 'Attribute creation using an invalid name should fail.',
+      ),
+      array(
+        'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array(
+          $validAttributeName => 'INVALID_DATA_TYPE',
+        )),
+        'message' => 'Attribute creation using an unexisting data type should fail.',
+      ),
+      array(
+        'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array(
+          $validAttributeName => self::ATTRIBUTE_DATA_TYPE_ID,
+        )),
+        'message' => 'Attribute creation using an unsupported data type should fail.',
+      ),
+      array(
+        'attribute' => array(MailinAPI::ATTRIBUTE_CATEGORY => array(
+          $validAttributeName => 'NOT-ARRAY',
+        )),
+        'message' => 'Category attribute creation using an wrong data type should fail.',
+      ),
+    );
+
+    foreach ($invalid as $test) {
+      $test += array('increment' => 0);
+      $this->assertFalse($this->mailinAPI->addAttributes($test['attribute']), $test['message']);
+      $this->assertCallcount($test['increment']);
+    }//end foreach
+
+    // @todo test addling a category
+    // @todo test adding a transactional attribute
+    // @todo test adding a calculated attribute
+    // @todo test adding a computed attribute
+
+    return $attributes;
   }
 
   /**
    * @covers Mailin\MailinAPI::deleteAttributes
+   * @depends testAddAttributes
    */
-  public function testDeleteAttributes() {
-    $this->markTestIncomplete();
+  public function testDeleteAttributes(array $attributes) {
+    $attributes = array_map('array_keys', $attributes);
+    $this->assertTrue($this->mailinAPI->deleteAttributes($attributes), 'Attributes deletion failed.');
+    $this->assertCallcount();
+
+    // Check if the attributes were really deleted.
+    $results = $this->mailinAPI->getAttributes();
+    $this->assertCallcount(1);
+
+    foreach ($results as $attributeType => $fetchedAttributes) {
+      foreach ($fetchedAttributes as $attribute) {
+        if (in_array($attribute['name'], $attributes[$attributeType])) {
+          $this->fail('Atribute with name ' . $attribute['name'] . ' still exists while it should have been deleted.');
+        }
+      }
+    }//end foreach
   }
 
   /**
@@ -303,7 +426,7 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
     $listId = key(reset($foldersLists));
 
     $userEmail = \MailinTestHelper::randomEmail();
-    $userId = $this->mailinAPI->saveUser($userEmail, array(), array($listId));
+    $userId = $this->mailinAPI->saveUser($userEmail, array($listId));
     $this->assertTrue(is_numeric($userId), "Creation of user $userEmail failed.");
     $result = $this->mailinAPI->getUserStatus(array($userEmail));
     $this->assertInternalType('array', $result, "Impossible to retrieve user $userEmail related data.");
@@ -312,14 +435,16 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
 
     // Create now a user who is blacklisted.
     $userEmail2 = \MailinTestHelper::randomEmail();
-    $userId2 = $this->mailinAPI->saveUser($userEmail2, array(), array($listId), TRUE);
+    $userId2 = $this->mailinAPI->saveUser($userEmail2, array($listId), array(), TRUE);
     $this->assertTrue(is_numeric($userId2), "Creation of user $userEmail2 failed.");
     $result = $this->mailinAPI->getUserStatus(array($userEmail2));
     $this->assertInternalType('array', $result, "Impossible to retrieve user $userEmail2 related data.");
     $this->assertEquals(reset($result), 1, "User $userEmail2 status is incorrect.");
     $this->assertCallcount(2);
 
-    //$this->markTestIncomplete('We should test user creation using attributes, but there is no implemented method that allows to retrieve those data from Mailin server yet.');
+    // @todo add a test with unexisting list ID.
+    // @todo add a test without any list ID.
+    // @todo save also attributes.
 
     return array(
       $userEmail => array('id' => $userId, 'listId' => $listId, 'status' => 0),

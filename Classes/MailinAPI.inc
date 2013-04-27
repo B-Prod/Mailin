@@ -32,7 +32,7 @@ class MailinAPI {
   const ACTION_FOLDER_DELETE = 'DELETE-FOLDER';
 
   /**
-   * Action that retrieves the folder list and their lists.
+   * Action that retrieves the folder list and their related mailin lists.
    */
   const ACTION_FOLDER_GET = 'DISPLAY-FOLDERS-LISTS';
 
@@ -42,9 +42,14 @@ class MailinAPI {
   const ACTION_LIST_ADD = 'NEWLIST';
 
   /**
+   * Action that retrieves the attribute list.
+   */
+  const ACTION_ATTRIBUTE_DISPLAY = 'DISPLAY-ATTRIBUTES';
+
+  /**
    * Action that creates a set of attributes.
    */
-  const ACTION_ATTRIBUTE_ADD = 'ATTRIBUTES_CREATION';
+  const ACTION_ATTRIBUTE_ADD = 'CREATE-ATTRIBUTES';
 
   /**
    * Action that delete a set of attributes.
@@ -118,22 +123,47 @@ class MailinAPI {
   /**
    * The "normal" attribute type.
    */
-  const ATTRIBUTE_NORMAL = 'normal';
+  const ATTRIBUTE_NORMAL = 'normal_attributes';
+
+  /**
+   * The "category" attribute type.
+   */
+  const ATTRIBUTE_CATEGORY = 'category_attributes';
 
   /**
    * The "transactionel" attribute type.
    */
-  const ATTRIBUTE_TRANSACTIONAL = 'transactional';
+  const ATTRIBUTE_TRANSACTIONAL = 'transactional_attributes';
 
   /**
-   * The "calculated" attribute type.
+   * The "calculated value" attribute type.
    */
-  const ATTRIBUTE_CALCULATED = 'calculated';
+  const ATTRIBUTE_CALCULATED = 'calculated_value';
 
   /**
-   * The "computation" attribute type.
+   * The "global computation" attribute type.
    */
-  const ATTRIBUTE_COMPUTATION = 'computation';
+  const ATTRIBUTE_COMPUTATION = 'global_computation_value';
+
+  /**
+   * The attribute data type that stores strings.
+   */
+  const ATTRIBUTE_DATA_TYPE_TEXT = 'TEXT';
+
+  /**
+   * The attribute data type that stores numbers.
+   */
+  const ATTRIBUTE_DATA_TYPE_NUMBER = 'NUMBER';
+
+  /**
+   * The attribute data type that stores dates.
+   */
+  const ATTRIBUTE_DATA_TYPE_DATE = 'DATE';
+
+  /**
+   * The attribute data type that stores IDs.
+   */
+  const ATTRIBUTE_DATA_TYPE_ID = 'ID';
 
   /**
    * Target all the campaign recipients.
@@ -457,6 +487,7 @@ class MailinAPI {
   public function getAttributeTypes() {
     return array(
       self::ATTRIBUTE_NORMAL,
+      self::ATTRIBUTE_CATEGORY,
       self::ATTRIBUTE_TRANSACTIONAL,
       self::ATTRIBUTE_CALCULATED,
       self::ATTRIBUTE_COMPUTATION,
@@ -464,10 +495,74 @@ class MailinAPI {
   }
 
   /**
+   * Check if a given data type is valid for a specific attribute type.
+   */
+  protected function validateAttributeDataType($attributeType, $dataType) {
+    switch ($attributeType) {
+      case self::ATTRIBUTE_NORMAL:
+        return in_array($dataType, array(
+          self::ATTRIBUTE_DATA_TYPE_TEXT,
+          self::ATTRIBUTE_DATA_TYPE_NUMBER,
+          self::ATTRIBUTE_DATA_TYPE_DATE,
+        ));
+
+      case self::ATTRIBUTE_TRANSACTIONAL:
+        return in_array($dataType, array(
+          self::ATTRIBUTE_DATA_TYPE_TEXT,
+          self::ATTRIBUTE_DATA_TYPE_NUMBER,
+          self::ATTRIBUTE_DATA_TYPE_DATE,
+          self::ATTRIBUTE_DATA_TYPE_ID,
+        ));
+
+      case self::ATTRIBUTE_CATEGORY:
+        return is_array($dataType);
+
+      case self::ATTRIBUTE_CALCULATED:
+      case self::ATTRIBUTE_COMPUTATION:
+        return TRUE;
+    }//end switch
+
+    return FALSE;
+  }
+
+  /**
+   * Get the existing attributes.
+   *
+   * @param $types
+   *   An array of types that are used to restrict the results. If nothing is
+   *   specified there, the full list of attributes is returned.
+   *
+   * @return array
+   *   An array of the existing attributes keyed by type.
+   *
+   * @see http://ressources.mailin.fr/affichage-attributs/?lang=en
+   */
+  public function getAttributes(array $types = array()) {
+    if (! $types) {
+      $types = $this->getAttributeTypes();
+    }
+    else {
+      $types = array_intersect($types, $this->getAttributeTypes());
+    }
+
+    // If the $types array was filled with invalid data, it can be empty. In
+    // such case, no need to perform a request.
+    if ($types) {
+      return $this->query(self::ACTION_ATTRIBUTE_DISPLAY, array_fill_keys($types, 1))->getDataOnSuccess();
+    }
+
+    return array();
+  }
+
+  /**
    * Add a set of attributes.
    *
    * @param $attributes
-   *   An array of attributes, keyed by attribute type.
+   *   An array of attributes, keyed by attribute type. Each attribute is an
+   *   array whose:
+   *   - key is the attribute name, that only contains alphanumeric characters,
+   *     hyphens or underscores.
+   *   - value is either a string or an array of items for category.
    *
    * @return boolean
    *   TRUE on success, otherwise FALSE.
@@ -475,29 +570,30 @@ class MailinAPI {
    * @see http://ressources.mailin.fr/creer-un-attribut/?lang=en
    */
   public function addAttributes(array $attributes) {
-    // @todo why the attribute types are not the same for creation and deletion?
+    if ($attributes = array_intersect_key($attributes, array_flip($this->getAttributeTypes()))) {
+      $args = array();
 
-    // We do not use the getAttributeTypes() method because the type names are not
-    // the same in the API...
-    $allowed = array('normal_attributes', 'transactional_attributes', 'category_attributes');
-
-    if ($args = array_intersect_key($attributes, array_flip($allowed))) {
-      foreach ($args as $key => $arg) {
-        foreach ($arg as &$definition) {
+      foreach ($attributes as $attributeType => $definitions) {
+        foreach ($definitions as $definition) {
           if (is_array($definition) && sizeof($definition) > 1) {
-            $definition = implode(', ', $definition);
+            list($attributeName, $data) = array_values($definition);
+
+            if ($this->validateAttributeDataType($attributeType, $data) && preg_match('/^[a-z_-]$/i', $attributeName)) {
+              $args[$attributeType] = implode(', ', array_merge(array(strtoupper($attributeName)), (array) $data));
+            }
           }
-          elseif (!is_string($definition) || FALSE === strpos($definition, ',')) {
-            $definition = FALSE;
-          }
+
+          // @todo perform necessary checks on calculated value and
+          // global computation attribute types.
+          // @see http://ressources.mailin.fr/formules/?lang=en
         }//end foreach
 
-        if ($args[$key] = array_filter($arg)) {
-          $arg['_separator_'] = ' | ';
+        if (!empty($args[$attributeType])) {
+          $args[$attributeType]['_separator_'] = ' | ';
         }
       }//end foreach
 
-      if ($args = array_filter($args)) {
+      if ($args) {
         return $this->query(self::ACTION_ATTRIBUTE_ADD, $args)->getResult() === 'OK';
       }
     }
@@ -513,14 +609,16 @@ class MailinAPI {
    *
    * @return boolean
    *   TRUE on success, otherwise FALSE.
+   *
+   * @see http://ressources.mailin.fr/supprimer-les-attributs/?lang=en
    */
   public function deleteAttributes(array $attributes) {
     if ($args = array_intersect_key($attributes, array_flip($this->getAttributeTypes()))) {
       foreach ($args as &$arg) {
-        $arg['_separator_'] = ',';
+        $arg['_separator_'] = ', ';
       }//end foreach
 
-      return (bool) $this->query(self::ACTION_ATTRIBUTE_DELETE, $args)->getResult();
+      return $this->query(self::ACTION_ATTRIBUTE_DELETE, $args)->getResult() === 'Attributes deleted successfully';
     }
 
     return FALSE;
@@ -596,22 +694,24 @@ class MailinAPI {
   /**
    * Add or update a user.
    *
-   * @todo Although the "listid" parameter is defined as optional in the
-   * Mailin documentation, it is indeed required to allow user creation.
-   *
    * @param $email
    *   The user e-mail address.
+   * @param $lists
+   *   An array of the list IDs the user should be subscribed to. At least one list
+   *   is required.
    * @param $attributes
    *   An array of attributes to store into Mailin server, as part of the
    *   user defined fields.
-   * @param $lists
-   *   An array of the list IDs the user should be subscribed to.
    * @param $blacklisted
    *   Flag indicating whether the user is blacklisted or not.
    *
    * @see http://ressources.mailin.fr/ajout-dun-utilisateur/?lang=en
    */
-  public function saveUser($email, array $attributes = array(), array $lists = array(), $blacklisted = FALSE) {
+  public function saveUser($email, array $lists, array $attributes = array(), $blacklisted = FALSE) {
+    if (!$lists) {
+      return FALSE;
+    }
+
     $query = array(
       'email' => $email,
       'blacklisted' => (int) $blacklisted,
