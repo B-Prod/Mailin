@@ -328,17 +328,22 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
     // Check attributes correspondence.
     foreach ($results as $attributeType => $fetchedAttributes) {
       foreach ($fetchedAttributes as $attribute) {
-        if (array_key_exists($attribute['name'], $attributes[$attributeType]) && strtoupper($attribute['type']) === $attributes[$attributeType][$attribute['name']]) {
-          // Some further checks are necessary for categories.
-          if ($attributeType === MailinAPI::ATTRIBUTE_CATEGORY) {
-            $labels = array_map(function($v) { return $v['label']; }, $attribute['enumeration']);
+        if (!empty($attributes[$attributeType]) && array_key_exists($attribute['name'], $attributes[$attributeType])) {
+          switch ($attributeType) {
+            case MailinAPI::ATTRIBUTE_NORMAL:
+              if (strtoupper($attribute['type']) === $attributes[$attributeType][$attribute['name']]) {
+                unset($missing[$attributeType][$attribute['name']]);
+              }
+              break;
 
-            if (array_diff($attributes[$attributeType][$attribute['name']], $labels)) {
-              continue;
-            }
-          }
+            case MailinAPI::ATTRIBUTE_CATEGORY:
+              $labels = array_map(function($v) { return $v['label']; }, $attribute['enumeration']);
 
-          unset($missing[$attributeType][$attribute['name']]);
+              if (!array_diff($attributes[$attributeType][$attribute['name']], $labels)) {
+                unset($missing[$attributeType][$attribute['name']]);
+              }
+              break;
+          }//end switch
         }
       }//end foreach
     }//end foreach

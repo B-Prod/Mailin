@@ -515,11 +515,11 @@ class MailinAPI {
         ));
 
       case self::ATTRIBUTE_CATEGORY:
-        return is_array($dataType);
+        return is_array($dataType) && !empty($dataType);
 
       case self::ATTRIBUTE_CALCULATED:
       case self::ATTRIBUTE_COMPUTATION:
-        return TRUE;
+        return is_string($dataType) && !empty($dataType);
     }//end switch
 
     return FALSE;
@@ -548,10 +548,33 @@ class MailinAPI {
     // If the $types array was filled with invalid data, it can be empty. In
     // such case, no need to perform a request.
     if ($types) {
-      return $this->query(self::ACTION_ATTRIBUTE_DISPLAY, array_fill_keys($types, 1))->getDataOnSuccess();
+      $attributes = $this->query(self::ACTION_ATTRIBUTE_DISPLAY, array_fill_keys($types, 1))->getDataOnSuccess();
+
+      // An extra process is currently necessary because the structure of the array returned
+      // by the Mailin server is not the expected one.
+      array_walk($attributes, array($this, 'processRawAttributes'));
+
+      return $attributes;
     }
 
     return array();
+  }
+
+  /**
+   * Temporary method that is used through array_walk() to
+   * clean the attribute structure
+   */
+  protected function processRawAttributes(&$attributes, $attributeType) {
+    $attributes = array_map('reset', $attributes);
+
+    // Some more process is required for category attributes.
+    if ($attributeType === self::ATTRIBUTE_CATEGORY) {
+      foreach ($attributes as &$attribute) {
+        if (!empty($attribute['enumeration'])) {
+          $attribute['enumeration'] = array_map('reset', $attribute['enumeration']);
+        }
+      }//end foreach
+    }
   }
 
   /**
@@ -574,19 +597,17 @@ class MailinAPI {
       $args = array();
 
       foreach ($attributes as $attributeType => $definitions) {
-        foreach ($definitions as $definition) {
-          if (is_array($definition) && sizeof($definition) > 1) {
-            list($attributeName, $data) = array_values($definition);
-
-            if ($this->validateAttributeDataType($attributeType, $data) && preg_match('/^[a-z_-]$/i', $attributeName)) {
-              $args[$attributeType] = implode(', ', array_merge(array(strtoupper($attributeName)), (array) $data));
+        if (is_array($definitions)) {
+          while (list($attributeName, $data) = each($definitions)) {
+            if ($this->validateAttributeDataType($attributeType, $data) && preg_match('/^[a-z_-]+$/i', $attributeName)) {
+              $args[$attributeType][] = implode(', ', array_merge(array(strtoupper($attributeName)), (array) $data));
             }
-          }
 
-          // @todo perform necessary checks on calculated value and
-          // global computation attribute types.
-          // @see http://ressources.mailin.fr/formules/?lang=en
-        }//end foreach
+            // @todo perform necessary checks on calculated value and
+            // global computation attribute types.
+            // @see http://ressources.mailin.fr/formules/?lang=en
+          }//end while
+        }
 
         if (!empty($args[$attributeType])) {
           $args[$attributeType]['_separator_'] = ' | ';
