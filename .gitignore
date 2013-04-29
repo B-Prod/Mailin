@@ -1,0 +1,3 @@
+# Ignore the command line test file.
+/test.php
+
