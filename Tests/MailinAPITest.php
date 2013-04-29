@@ -320,7 +320,7 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
     $this->assertCallcount();
 
     $results = $this->mailinAPI->getAttributes(array(MailinAPI::ATTRIBUTE_NORMAL, MailinAPI::ATTRIBUTE_CATEGORY));
-    $this->assertTrue(sizeof($result) === 2, 'Getting attribute list failed.');
+    $this->assertTrue(sizeof($results) === 2, 'Getting attribute list failed.');
     $this->assertCallcount(1);
 
     $missing = $attributes;
@@ -348,7 +348,7 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
       }//end foreach
     }//end foreach
 
-    $this->assertEmpty($missing, 'Some attributes have not been created.');
+    $this->assertEmpty(array_filter($missing), 'Some attributes have not been created.');
 
     // Try to save invalid attributes.
     $validAttributeName = \MailinTestHelper::randomName(8, 'TEST-', 1, FALSE, '_-');
@@ -375,7 +375,7 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
       ),
       array(
         'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array(
-          $validAttributeName => self::ATTRIBUTE_DATA_TYPE_ID,
+          $validAttributeName => MailinAPI::ATTRIBUTE_DATA_TYPE_ID,
         )),
         'message' => 'Attribute creation using an unsupported data type should fail.',
       ),
@@ -406,6 +406,9 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
    * @depends testAddAttributes
    */
   public function testDeleteAttributes(array $attributes) {
+    $this->markTestIncomplete('There is an issue with this action in Mailin server. This should be resolved soon, but awaiting a fix the test is skipped.');
+    return;
+
     $attributes = array_map('array_keys', $attributes);
     $this->assertTrue($this->mailinAPI->deleteAttributes($attributes), 'Attributes deletion failed.');
     $this->assertCallcount();
