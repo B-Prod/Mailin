@@ -6,7 +6,7 @@ Provides integration with [Mailin](http://www.mailin.fr/), an email delivery ser
 Current release
 -------------
 
-* Version: alpha-0.1
+* Version: alpha-0.2
 * Notes:
   * Do not use this release on a production site.
   * This version does not allow to remove attributes.
