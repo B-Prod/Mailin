@@ -7,6 +7,7 @@
 
 namespace Mailin;
 
+use Mailin\Attribute\MailinAttributeInterface;
 use Mailin\Request\MailinRequestCurl;
 use Mailin\Response\MailinResponse;
 use Mailin\MailinLog;
@@ -486,11 +487,11 @@ class MailinAPI {
    */
   public function getAttributeTypes() {
     return array(
-      self::ATTRIBUTE_NORMAL,
-      self::ATTRIBUTE_CATEGORY,
-      self::ATTRIBUTE_TRANSACTIONAL,
-      self::ATTRIBUTE_CALCULATED,
-      self::ATTRIBUTE_COMPUTATION,
+      'Mailin\\Attribute\\MailinAttributeNormal' => self::ATTRIBUTE_NORMAL,
+      'Mailin\\Attribute\\MailinAttributeCategory' => self::ATTRIBUTE_CATEGORY,
+      'Mailin\\Attribute\\MailinAttributeTransactional' => self::ATTRIBUTE_TRANSACTIONAL,
+      'Mailin\\Attribute\\MailinAttributeCalculated' => self::ATTRIBUTE_CALCULATED,
+      'Mailin\\Attribute\\MailinAttributeComputation' => self::ATTRIBUTE_COMPUTATION,
     );
   }
 
@@ -565,16 +566,22 @@ class MailinAPI {
    * clean the attribute structure
    */
   protected function processRawAttributes(&$attributes, $attributeType) {
+    $class = array_search($attributeType, $this->getAttributeTypes());
+
+    // An issue in the Mailin DISPLAY-ATTRIBUTES service forces us to use array_map()
+    // to make the returned sata match the structure defined in the documentation.
     $attributes = array_map('reset', $attributes);
 
-    // Some more process is required for category attributes.
-    if ($attributeType === self::ATTRIBUTE_CATEGORY) {
-      foreach ($attributes as &$attribute) {
+    foreach ($attributes as &$attribute) {
+      // Extra process is required for category attributes, due to the same issue as above.
+      if ($attributeType === self::ATTRIBUTE_CATEGORY) {
         if (!empty($attribute['enumeration'])) {
           $attribute['enumeration'] = array_map('reset', $attribute['enumeration']);
         }
-      }//end foreach
-    }
+      }
+
+      $attribute = new $class($attribute);
+    }//end foreach
   }
 
   /**
@@ -582,10 +589,7 @@ class MailinAPI {
    *
    * @param $attributes
    *   An array of attributes, keyed by attribute type. Each attribute is an
-   *   array whose:
-   *   - key is the attribute name, that only contains alphanumeric characters,
-   *     hyphens or underscores.
-   *   - value is either a string or an array of items for category.
+   *   object whose class implements the MailinAttributeInterface interface.
    *
    * @return boolean
    *   TRUE on success, otherwise FALSE.
@@ -598,15 +602,11 @@ class MailinAPI {
 
       foreach ($attributes as $attributeType => $definitions) {
         if (is_array($definitions)) {
-          while (list($attributeName, $data) = each($definitions)) {
-            if ($this->validateAttributeDataType($attributeType, $data) && preg_match('/^[a-z_-]+$/i', $attributeName)) {
-              $args[$attributeType][] = implode(', ', array_merge(array(strtoupper($attributeName)), (array) $data));
+          foreach ($definitions as $attribute) {
+            if ($attribute instanceof MailinAttributeInterface && $definition = (string) $attribute) {
+              $args[$attributeType][] = $definition;
             }
-
-            // @todo perform necessary checks on calculated value and
-            // global computation attribute types.
-            // @see http://ressources.mailin.fr/formules/?lang=en
-          }//end while
+          }//end foreach
         }
 
         if (!empty($args[$attributeType])) {

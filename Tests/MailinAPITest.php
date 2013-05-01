@@ -7,6 +7,7 @@
 
 namespace Mailin\Tests;
 
+use Mailin\Attribute as MA;
 use Mailin\MailinAPI;
 use Mailin\MailinLog;
 use Mailin\Tests\MailinLogTest;
@@ -301,18 +302,33 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
    * @covers Mailin\MailinAPI::addAttributes
    */
   public function testAddAttributes() {
+    $callback = array('\MailinTestHelper', 'randomName');
+    $args = array(8, 'TEST-', 1, FALSE, '_-');
+
     $attributes = array(
       MailinAPI::ATTRIBUTE_NORMAL => array(
-        \MailinTestHelper::randomName(8, 'TEST-', 1, FALSE, '_-') => MailinAPI::ATTRIBUTE_DATA_TYPE_TEXT,
-        \MailinTestHelper::randomName(8, 'TEST-', 1, FALSE, '_-') => MailinAPI::ATTRIBUTE_DATA_TYPE_NUMBER,
-        \MailinTestHelper::randomName(8, 'TEST-', 1, FALSE, '_-') => MailinAPI::ATTRIBUTE_DATA_TYPE_DATE,
+        new MA\MailinAttributeNormal(array(
+          'name' => call_user_func_array($callback, $args),
+          'type' => MailinAPI::ATTRIBUTE_DATA_TYPE_TEXT,
+        )),
+        new MA\MailinAttributeNormal(array(
+          'name' => call_user_func_array($callback, $args),
+          'type' => MailinAPI::ATTRIBUTE_DATA_TYPE_NUMBER,
+        )),
+        new MA\MailinAttributeNormal(array(
+          'name' => call_user_func_array($callback, $args),
+          'type' => MailinAPI::ATTRIBUTE_DATA_TYPE_DATE,
+        )),
       ),
       MailinAPI::ATTRIBUTE_CATEGORY => array(
-        \MailinTestHelper::randomName(8, 'TEST-', 1, FALSE, '_-') => array(
-          \MailinTestHelper::randomName(),
-          \MailinTestHelper::randomName(),
-          \MailinTestHelper::randomName(),
-        ),
+        new MA\MailinAttributeCategory(array(
+          'name' => call_user_func_array($callback, $args),
+          'enumeration' => array(
+            \MailinTestHelper::randomName(),
+            \MailinTestHelper::randomName(),
+            \MailinTestHelper::randomName(),
+          ),
+        )),
       ),
     );
 
@@ -324,23 +340,24 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
     $this->assertCallcount(1);
 
     $missing = $attributes;
+    $filter = new MA\MailinAttributesFilter($results);
 
     // Check attributes correspondence.
-    foreach ($results as $attributeType => $fetchedAttributes) {
-      foreach ($fetchedAttributes as $attribute) {
-        if (!empty($attributes[$attributeType]) && array_key_exists($attribute['name'], $attributes[$attributeType])) {
+    foreach ($attributes as $attributeType => $attributeInstances) {
+      foreach ($attributeInstances as $key => $attribute) {
+        $filter->setFilter('type', $attributeType)->setFilter('name', $attribute->getName());
+
+        if ($found = $filter->getOne()) {
           switch ($attributeType) {
             case MailinAPI::ATTRIBUTE_NORMAL:
-              if (strtoupper($attribute['type']) === $attributes[$attributeType][$attribute['name']]) {
-                unset($missing[$attributeType][$attribute['name']]);
+              if ($found->getDataType() === $attribute->getDataType()) {
+                unset($missing[$attributeType][$key]);
               }
               break;
 
             case MailinAPI::ATTRIBUTE_CATEGORY:
-              $labels = array_map(function($v) { return $v['label']; }, $attribute['enumeration']);
-
-              if (!array_diff($attributes[$attributeType][$attribute['name']], $labels)) {
-                unset($missing[$attributeType][$attribute['name']]);
+              if (!array_diff($attribute->getEnumeration(TRUE), $found->getEnumeration(TRUE))) {
+                unset($missing[$attributeType][$key]);
               }
               break;
           }//end switch
@@ -358,32 +375,32 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
         'message' => 'Attribute creation using an invalid attribute type should fail.',
       ),
       array(
-        'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array('not-array')),
-        'message' => 'Attribute creation using an invalid definition should fail.',
+        'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => 'not-array'),
+        'message' => 'Attribute creation using an invalid structure should fail.',
       ),
       array(
         'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array(
-          'INVALID NAME' => MailinAPI::ATTRIBUTE_DATA_TYPE_TEXT,
+          new MA\MailinAttributeNormal(array('name' => 'INVALID NAME', 'type' => MailinAPI::ATTRIBUTE_DATA_TYPE_TEXT)),
         )),
         'message' => 'Attribute creation using an invalid name should fail.',
       ),
       array(
         'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array(
-          $validAttributeName => 'INVALID_DATA_TYPE',
+          new MA\MailinAttributeNormal(array('name' => $validAttributeName, 'type' => 'INVALID_DATA_TYPE')),
         )),
         'message' => 'Attribute creation using an unexisting data type should fail.',
       ),
       array(
         'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array(
-          $validAttributeName => MailinAPI::ATTRIBUTE_DATA_TYPE_ID,
+          new MA\MailinAttributeNormal(array('name' => $validAttributeName, 'type' => MailinAPI::ATTRIBUTE_DATA_TYPE_ID)),
         )),
         'message' => 'Attribute creation using an unsupported data type should fail.',
       ),
       array(
         'attribute' => array(MailinAPI::ATTRIBUTE_CATEGORY => array(
-          $validAttributeName => 'NOT-ARRAY',
+          new MA\MailinAttributeCategory(array('name' => $validAttributeName)),
         )),
-        'message' => 'Category attribute creation using an wrong data type should fail.',
+        'message' => 'Category attribute creation using no enumeration should fail.',
       ),
     );
 
@@ -393,7 +410,6 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
       $this->assertCallcount($test['increment']);
     }//end foreach
 
-    // @todo test addling a category
     // @todo test adding a transactional attribute
     // @todo test adding a calculated attribute
     // @todo test adding a computed attribute
