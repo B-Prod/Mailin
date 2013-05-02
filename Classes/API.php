@@ -7,15 +7,14 @@
 
 namespace Mailin;
 
-use Mailin\Attribute\MailinAttributeInterface;
-use Mailin\Request\MailinRequestCurl;
-use Mailin\Response\MailinResponse;
-use Mailin\MailinLog;
+use Mailin\Attribute\AttributeInterface;
+use Mailin\Request AS MR;
+use Mailin\Response\Response;
 
 /**
  * Mailin API class.
  */
-class MailinAPI {
+class API {
 
   /**
    * @defgroup API actions
@@ -191,19 +190,19 @@ class MailinAPI {
   /**
    * The request instance that is used to handle requests against Mailin server.
    *
-   * @var MailinRequestInterface
+   * @var Mailin\Request\RequestInterface
    */
   protected $requestHandler;
 
   /**
    * Class constructor.
    *
-   * @param mixed $apiKey
-   * @param MailinRequestInterface $requestHandler
+   * @param $apiKey
+   * @param $requestHandler
    */
-  public function __construct($apiKey, MailinRequestInterface $requestHandler = NULL) {
+  public function __construct($apiKey, MR\RequestInterface $requestHandler = NULL) {
     $this->apiKey = $apiKey;
-    $this->requestHandler = isset($requestHandler) ? $requestHandler : new MailinRequestCurl();
+    $this->requestHandler = isset($requestHandler) ? $requestHandler : new MR\Curl();
   }
 
   /**
@@ -212,10 +211,10 @@ class MailinAPI {
    * @param $requesthandler
    *   The new request handler object instance.
    *
-   * @return MailinAPI
+   * @return Mailin\API
    *   The current instance.
    */
-  public function setRequesthandler(MailinRequestInterface $requesthandler) {
+  public function setRequesthandler(MR\RequestInterface $requesthandler) {
     $this->requestHandler = $requesthandler;
   }
 
@@ -227,7 +226,7 @@ class MailinAPI {
    * @param $query
    *   The data to use as post for the request.
    *
-   * @return MailinResponseInterface
+   * @return Mailin\Response\ResponseInterface
    *   The Mailin response object.
    */
   protected function query($action, array $query = array()) {
@@ -249,9 +248,9 @@ class MailinAPI {
 
     $query += array('key' => $this->apiKey, 'webaction' => $action);
 
-    MailinLog::startApiCall($query);
+    Log::startApiCall($query);
     $response = $this->requestHandler->request($query);
-    MailinLog::endApiCall($response);
+    Log::endApiCall($response);
 
     return $response;
   }
@@ -487,11 +486,11 @@ class MailinAPI {
    */
   public function getAttributeTypes() {
     return array(
-      'Mailin\\Attribute\\MailinAttributeNormal' => self::ATTRIBUTE_NORMAL,
-      'Mailin\\Attribute\\MailinAttributeCategory' => self::ATTRIBUTE_CATEGORY,
-      'Mailin\\Attribute\\MailinAttributeTransactional' => self::ATTRIBUTE_TRANSACTIONAL,
-      'Mailin\\Attribute\\MailinAttributeCalculated' => self::ATTRIBUTE_CALCULATED,
-      'Mailin\\Attribute\\MailinAttributeComputation' => self::ATTRIBUTE_COMPUTATION,
+      'Mailin\\Attribute\\Normal' => self::ATTRIBUTE_NORMAL,
+      'Mailin\\Attribute\\Category' => self::ATTRIBUTE_CATEGORY,
+      'Mailin\\Attribute\\Transactional' => self::ATTRIBUTE_TRANSACTIONAL,
+      'Mailin\\Attribute\\Calculated' => self::ATTRIBUTE_CALCULATED,
+      'Mailin\\Attribute\\Computation' => self::ATTRIBUTE_COMPUTATION,
     );
   }
 
@@ -589,7 +588,7 @@ class MailinAPI {
    *
    * @param $attributes
    *   An array of attributes, keyed by attribute type. Each attribute is an
-   *   object whose class implements the MailinAttributeInterface interface.
+   *   object whose class implements the Mailin\Attribute\AttributeInterface interface.
    *
    * @return boolean
    *   TRUE on success, otherwise FALSE.
@@ -603,7 +602,7 @@ class MailinAPI {
       foreach ($attributes as $attributeType => $definitions) {
         if (is_array($definitions)) {
           foreach ($definitions as $attribute) {
-            if ($attribute instanceof MailinAttributeInterface && $definition = (string) $attribute) {
+            if ($attribute instanceof AttributeInterface && $definition = (string) $attribute) {
               $args[$attributeType][] = $definition;
             }
           }//end foreach
@@ -626,7 +625,9 @@ class MailinAPI {
    * Delete a set of attributes.
    *
    * @param $attributes
-   *   An array of attributes, keyed by attribute type.
+   *   An array of attribute names, keyed by attribute type. It is also
+   *   possible to use an instance of Mailin\Attibute\AttributeInterface
+   *   instead of the attribute name.
    *
    * @return boolean
    *   TRUE on success, otherwise FALSE.
@@ -635,7 +636,10 @@ class MailinAPI {
    */
   public function deleteAttributes(array $attributes) {
     if ($args = array_intersect_key($attributes, array_flip($this->getAttributeTypes()))) {
+      $callback = function($attribute) { return ($attribute instanceof AttributeInterface) ? $attribute->getName() : $attribute; };
+
       foreach ($args as &$arg) {
+        $arg = array_map($callback, $arg);
         $arg['_separator_'] = ', ';
       }//end foreach
 

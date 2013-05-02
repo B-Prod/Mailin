@@ -17,7 +17,7 @@ function mailin_autoloader($class) {
   $parts = explode('\\', $class);
 
   if (array_shift($parts) === 'Mailin' && $parts) {
-    $file = __DIR__ . '/Classes/' . implode('/', $parts) . '.inc';
+    $file = __DIR__ . (reset($parts) === 'Tests' ? '/' : '/Classes/')  . implode('/', $parts)  . '.php';
 
     if (file_exists($file)) {
       include $file;

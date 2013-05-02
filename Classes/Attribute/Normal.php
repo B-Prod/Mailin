@@ -7,13 +7,12 @@
 
 namespace Mailin\Attribute;
 
-use Mailin\Attribute\MailinAttribute;
-use Mailin\MailinAPI;
+use Mailin\API as Mailin;
 
 /**
  * The Mailin Attribute Normal class.
  */
-class MailinAttributeNormal extends MailinAttribute {
+class Normal extends Attribute {
 
   /**
    * The type of data handled by this attribute.
@@ -47,9 +46,9 @@ class MailinAttributeNormal extends MailinAttribute {
    */
   public function getAllowedDataTypes() {
     return array(
-      MailinAPI::ATTRIBUTE_DATA_TYPE_TEXT,
-      MailinAPI::ATTRIBUTE_DATA_TYPE_NUMBER,
-      MailinAPI::ATTRIBUTE_DATA_TYPE_DATE,
+      Mailin::ATTRIBUTE_DATA_TYPE_TEXT,
+      Mailin::ATTRIBUTE_DATA_TYPE_NUMBER,
+      Mailin::ATTRIBUTE_DATA_TYPE_DATE,
     );
   }
 
@@ -67,7 +66,7 @@ class MailinAttributeNormal extends MailinAttribute {
    *
    * @param $dataType
    *
-   * @return MailinAttributeInterface
+   * @return Mailin\Attribute\AttributeInterface
    */
   public function setDataType($dataType) {
     $dataType = strtoupper($dataType);
@@ -83,7 +82,7 @@ class MailinAttributeNormal extends MailinAttribute {
    * @inheritdoc
    */
   public function getType() {
-    return MailinAPI::ATTRIBUTE_NORMAL;
+    return Mailin::ATTRIBUTE_NORMAL;
   }
 
   /**

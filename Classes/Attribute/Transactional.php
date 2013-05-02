@@ -7,13 +7,12 @@
 
 namespace Mailin\Attribute;
 
-use Mailin\Attribute\MailinAttributeNormal;
-use Mailin\MailinAPI;
+use Mailin\API as Mailin;
 
 /**
  * The Mailin Attribute Transactional class.
  */
-class MailinAttributeTransactional extends MailinAttributeNormal {
+class Transactional extends Normal {
 
   /**
    * Get the allowed data types.
@@ -22,10 +21,10 @@ class MailinAttributeTransactional extends MailinAttributeNormal {
    */
   public function getAllowedDataTypes() {
     return array(
-      MailinAPI::ATTRIBUTE_DATA_TYPE_TEXT,
-      MailinAPI::ATTRIBUTE_DATA_TYPE_NUMBER,
-      MailinAPI::ATTRIBUTE_DATA_TYPE_DATE,
-      MailinAPI::ATTRIBUTE_DATA_TYPE_ID,
+      Mailin::ATTRIBUTE_DATA_TYPE_TEXT,
+      Mailin::ATTRIBUTE_DATA_TYPE_NUMBER,
+      Mailin::ATTRIBUTE_DATA_TYPE_DATE,
+      Mailin::ATTRIBUTE_DATA_TYPE_ID,
     );
   }
 
@@ -33,7 +32,7 @@ class MailinAttributeTransactional extends MailinAttributeNormal {
    * @inheritdoc
    */
   public function getType() {
-    return MailinAPI::ATTRIBUTE_TRANSACTIONAL;
+    return Mailin::ATTRIBUTE_TRANSACTIONAL;
   }
 
 }

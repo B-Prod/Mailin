@@ -10,7 +10,7 @@ namespace Mailin\Request;
 /**
  * The Mailin Request interface.
  */
-interface MailinRequestInterface {
+interface RequestInterface {
 
   /**
    * Perform a request against Mailin server.

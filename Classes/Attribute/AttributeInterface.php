@@ -10,7 +10,7 @@ namespace Mailin\Attribute;
 /**
  * The Mailin Attribute Interface.
  */
-interface MailinAttributeInterface {
+interface AttributeInterface {
 
   /**
    * class constructor.
@@ -36,7 +36,7 @@ interface MailinAttributeInterface {
   /**
    * Set the attribute name.
    *
-   * @return MailinAttributeInterface
+   * @return Mailin\Attribute\AttributeInterface
    */
   public function setName($name);
 

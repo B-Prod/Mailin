@@ -10,7 +10,7 @@ namespace Mailin\Response;
 /**
  * The Mailin Response interface.
  */
-interface MailinResponseInterface {
+interface ResponseInterface {
 
   /**
    * Class constructor.

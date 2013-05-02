@@ -7,12 +7,12 @@
 
 namespace Mailin;
 
-use Mailin\Response\MailinResponseInterface;
+use Mailin\Response\ResponseInterface;
 
 /**
  * The Mailin Log class.
  */
-abstract class MailinLog {
+abstract class Log {
 
   /**
    * Store the API calls debug information.
@@ -52,7 +52,7 @@ abstract class MailinLog {
    * @param $response
    *   The API call response.
    */
-  public static function endApiCall(MailinResponseInterface $response) {
+  public static function endApiCall(ResponseInterface $response) {
     if (isset(self::$references['apiCall'])) {
       $current = & self::$references['apiCall'];
       $current += array(
@@ -76,6 +76,21 @@ abstract class MailinLog {
    */
   public static function countApiCalls() {
     return sizeof(self::$apiCalls);
+  }
+
+  /**
+   * Get the error message related to the last operation.
+   *
+   * @return string
+   */
+  public static function getLastOperationError() {
+    $operation = end(self::$apiCalls);
+
+    if (isset($operation['error']) && strlen($operation['error'])) {
+      return $operation['error'];
+    }
+
+    return '';
   }
 
 }

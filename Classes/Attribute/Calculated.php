@@ -7,19 +7,18 @@
 
 namespace Mailin\Attribute;
 
-use Mailin\Attribute\MailinAttributeComputation;
-use Mailin\MailinAPI;
+use Mailin\API as Mailin;
 
 /**
  * The Mailin Attribute Calculated class.
  */
-class MailinAttributeCalculated extends MailinAttributeComputation {
+class Calculated extends Computation {
 
   /**
    * @inheritdoc
    */
   public function getType() {
-    return MailinAPI::ATTRIBUTE_CALCULATED;
+    return Mailin::ATTRIBUTE_CALCULATED;
   }
 
 }

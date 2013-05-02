@@ -7,13 +7,12 @@
 
 namespace Mailin\Attribute;
 
-use Mailin\Attribute\MailinAttribute;
-use Mailin\MailinAPI;
+use Mailin\API as Mailin;
 
 /**
  * The Mailin Attribute Category class.
  */
-class MailinAttributeCategory extends MailinAttribute {
+class Category extends Attribute {
 
   /**
    * The category items.
@@ -50,7 +49,7 @@ class MailinAttributeCategory extends MailinAttribute {
    * @inheritdoc
    */
   public function getType() {
-    return MailinAPI::ATTRIBUTE_CATEGORY;
+    return Mailin::ATTRIBUTE_CATEGORY;
   }
 
   /**
@@ -71,7 +70,7 @@ class MailinAttributeCategory extends MailinAttribute {
    * @param $items
    *   An array of item names.
    *
-   * @return MailinAttributeInterface
+   * @return Mailin\Attribute\AttributeInterface
    */
   public function setEnumeration(array $items) {
     $this->enumeration = array();
@@ -107,7 +106,7 @@ class MailinAttributeCategory extends MailinAttribute {
    * @param $value
    *   The item value.
    *
-   * @return MailinAttributeInterface
+   * @return Mailin\Attribute\AttributeInterface
    */
   public function addEnumerationItem($label, $value = NULL) {
     if (is_string($label) && strlen($label) && (is_null($value) || is_numeric($value))) {

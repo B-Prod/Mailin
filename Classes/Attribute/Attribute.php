@@ -7,12 +7,10 @@
 
 namespace Mailin\Attribute;
 
-use Mailin\Attribute\MailinAttributeInterface;
-
 /**
  * The Mailin Attribute class.
  */
-abstract class MailinAttribute implements MailinAttributeInterface {
+abstract class Attribute implements AttributeInterface {
 
   /**
    * The attribute name.

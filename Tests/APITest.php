@@ -8,9 +8,8 @@
 namespace Mailin\Tests;
 
 use Mailin\Attribute as MA;
-use Mailin\MailinAPI;
-use Mailin\MailinLog;
-use Mailin\Tests\MailinLogTest;
+use Mailin\API as Mailin;
+use Mailin\Log;
 
 /**
  * Test class for the Mailin API class.
@@ -18,7 +17,7 @@ use Mailin\Tests\MailinLogTest;
  * @backupGlobals disabled
  * @backupStaticAttributes disabled
  */
-class MailinAPITest extends \PHPUnit_Framework_TestCase {
+class APITest extends \PHPUnit_Framework_TestCase {
 
   /**
    * The API key for the test account.
@@ -28,9 +27,9 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   /**
    * The Mailin API instance.
    *
-   * @var MailinAPI
+   * @var Mailin\API
    */
-  protected $mailinAPI;
+  protected $mailin;
 
   /**
    * The total number of calls to the Mailin server.
@@ -43,7 +42,7 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
    * @inheritdoc
    */
   protected function setUp() {
-    $this->mailinAPI = new MailinAPI(self::API_KEY);
+    $this->mailin = new Mailin(self::API_KEY);
   }
 
   /**
@@ -57,14 +56,14 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
       self::$apiCallsCount += $increment;
     }
 
-    $this->assertEquals(self::$apiCallsCount, MailinLog::countApiCalls(), 'API calls count does not match.');
+    $this->assertEquals(self::$apiCallsCount, Log::countApiCalls(), 'API calls count does not match.');
   }
 
   /**
    * Create a random folder name that does not exist in Mailin server.
    */
   protected function createFolderName() {
-    $folders = array_map(function ($folder) { return $folder['name']; }, $this->mailinAPI->getFolders());
+    $folders = array_map(function ($folder) { return $folder['name']; }, $this->mailin->getFolders());
     self::$apiCallsCount++;
 
     do {
@@ -82,7 +81,7 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
    *   The parent folder ID.
    */
   protected function createListName($parentId) {
-    $lists = array_map(function ($list) { return $list['name']; }, $this->mailinAPI->getListsFromFolder($parentId));
+    $lists = array_map(function ($list) { return $list['name']; }, $this->mailin->getListsFromFolder($parentId));
     self::$apiCallsCount++;
 
     do {
@@ -94,31 +93,31 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
-   * @covers Mailin\MailinAPI::getFolders
+   * @covers Mailin\API::getFolders
    */
   public function testGetFolders() {
-    $folders = $this->mailinAPI->getFolders();
+    $folders = $this->mailin->getFolders();
     $this->assertInternalType('array', $folders, 'Folder fetch operation failed.');
     $this->assertCallcount();
   }
 
   /**
-   * @covers Mailin\MailinAPI::addFolder
+   * @covers Mailin\API::addFolder
    * @depends testGetFolders
    */
   public function testAddFolder() {
     $folderName = $this->createFolderName();
 
-    $folderId = $this->mailinAPI->addFolder($folderName);
+    $folderId = $this->mailin->addFolder($folderName);
     $this->assertInternalType('int', $folderId, "Creation of folder $folderName failed.");
     $this->assertCallcount(2); // 2 API calls.
 
     // Try to create a folder with the same name.
-    $this->assertFalse($this->mailinAPI->addFolder($folderName), "Creation of a folder with the same name $folderName should fail.");
+    $this->assertFalse($this->mailin->addFolder($folderName), "Creation of a folder with the same name $folderName should fail.");
     $this->assertCallcount(); // Only 1 API call, since the first call to findFoldersByName() stops the process.
 
     // Force the creation of a new folder even if a folder with the same name exists.
-    $folderId2 = $this->mailinAPI->addFolder($folderName, TRUE);
+    $folderId2 = $this->mailin->addFolder($folderName, TRUE);
     $this->assertInternalType('int', $folderId, "Forcing the creation of folder with the same name $folderName failed.");
     $this->assertNotEquals($folderId, $folderId2, 'The two folders should not have the same ID.');
     $this->assertCallcount();
@@ -127,12 +126,12 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
-   * @covers Mailin\MailinAPI::findFolder
+   * @covers Mailin\API::findFolder
    * @depends testAddFolder
    */
   public function testFindFolder($folders) {
     list($folderId, $folderName) = each($folders);
-    $folder = $this->mailinAPI->findFolder($folderId);
+    $folder = $this->mailin->findFolder($folderId);
 
     $this->assertInternalType('array', $folder, 'Find folder operation failed.');
     $this->assertEquals($folderId, $folder['id'], 'Returned folder has not the expected ID.');
@@ -141,16 +140,16 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
-   * @covers Mailin\MailinAPI::findFoldersByName
+   * @covers Mailin\API::findFoldersByName
    * @depends testAddFolder
    */
   public function testFindFoldersByName($folders) {
     // Search an unexisting folder.
-    $this->assertEquals(array(), $this->mailinAPI->findFoldersByName($this->createFolderName()), 'Unexisting folder search should return FALSE.');
+    $this->assertEquals(array(), $this->mailin->findFoldersByName($this->createFolderName()), 'Unexisting folder search should return FALSE.');
     $this->assertCallcount();
 
     list($folderId, $folderName) = each($folders);
-    $results = array_fill_keys(array_keys($this->mailinAPI->findFoldersByName($folderName)), $folderName);
+    $results = array_fill_keys(array_keys($this->mailin->findFoldersByName($folderName)), $folderName);
     ksort($results);
     ksort($folders);
     $this->assertEquals($results, $folders, 'The search should return the two newly created folders and only that.');
@@ -158,46 +157,46 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
-   * @covers Mailin\MailinAPI::getLists
+   * @covers Mailin\API::getLists
    */
   public function testGetLists() {
-    $lists = $this->mailinAPI->getLists();
+    $lists = $this->mailin->getLists();
     $this->assertInternalType('array', $lists, 'List fetch operation failed.');
     $this->assertCallcount();
   }
 
   /**
-   * @covers Mailin\MailinAPI::addList
+   * @covers Mailin\API::addList
    * @depends testAddFolder
    */
   public function testAddList(array $folders) {
     list($folderId, $folderId2) = array_keys($folders);
 
     $listName = $this->createListName($folderId);
-    $listId = $this->mailinAPI->addList($listName, $folderId);
+    $listId = $this->mailin->addList($listName, $folderId);
 
     $this->assertInternalType('int', $listId, "Creation of list $listId failed.");
     $this->assertCallcount(2); // 2 API calls.
 
     // Create a second list in the same folder.
     $listName2 = $this->createListName($folderId);
-    $listId2 = $this->mailinAPI->addList($listName2, $folderId);
+    $listId2 = $this->mailin->addList($listName2, $folderId);
 
     $this->assertInternalType('int', $listId2, "Creation of list $listId2 failed.");
     $this->assertCallcount(2); // 2 API calls.
 
     // Create a list with the same name, in the same folder.
-    $this->assertFalse($this->mailinAPI->addList($listName, $folderId), "Creation of a list with the same name $listName in the same folder should fail.");
+    $this->assertFalse($this->mailin->addList($listName, $folderId), "Creation of a list with the same name $listName in the same folder should fail.");
     $this->assertCallcount(); // Only 1 API call, since the first call to findListsByName() stops the process.
 
     // Force the creation of a new list even if a list with the same name exists in the same folder.
-    $listId3 = $this->mailinAPI->addList($listName, $folderId, TRUE);
+    $listId3 = $this->mailin->addList($listName, $folderId, TRUE);
     $this->assertInternalType('int', $listId3, "Forcing the creation of list with the same name $listName in the same folder failed.");
     $this->assertFalse(in_array($listId3, array($listId, $listId2)), 'The lists should not have the same ID.');
     $this->assertCallcount();
 
     // Create a list with the same name, in a different folder, without forcing.
-    $listId4 = $this->mailinAPI->addList($listName, $folderId2);
+    $listId4 = $this->mailin->addList($listName, $folderId2);
     $this->assertInternalType('int', $listId4, "Creation of list with the same name $listName in a different folder failed.");
     $this->assertFalse(in_array($listId4, array($listId, $listId2, $listId3)), 'The three lists should not have the same ID.');
     $this->assertCallcount(2); // 2 API calls.
@@ -209,13 +208,13 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
-   * @covers Mailin\MailinAPI::findLists
+   * @covers Mailin\API::findLists
    * @depends testAddList
    */
   public function testFindList(array $foldersLists) {
     list($folderId, $lists) = each($foldersLists);
     list($listId, $listName) = each($lists);
-    $list = $this->mailinAPI->findList($listId);
+    $list = $this->mailin->findList($listId);
 
     $this->assertInternalType('array', $list, 'Find list operation failed.');
     $this->assertEquals($listId, $list['id'], 'Returned list has not the expected ID.');
@@ -225,23 +224,23 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
 
     // Try wrong ID.
     $wrongId = rand(10000, 20000);
-    $this->assertFalse($this->mailinAPI->findList($wrongId), 'A unexisting ID should not return anything.');
+    $this->assertFalse($this->mailin->findList($wrongId), 'A unexisting ID should not return anything.');
     $this->assertCallcount();
 
     // Try existing folder ID.
-    $this->assertFalse($this->mailinAPI->findList($folderId), 'An existing folder ID should not return any list.');
+    $this->assertFalse($this->mailin->findList($folderId), 'An existing folder ID should not return any list.');
     $this->assertCallcount();
   }
 
   /**
-   * @covers Mailin\MailinAPI::getListsFromFolder
+   * @covers Mailin\API::getListsFromFolder
    * @depends testAddList
    */
   function testGetListsFromFolder(array $foldersLists) {
     foreach ($foldersLists as $folderId => $lists) {
       $expectedIds = array_keys($lists);
       $count = sizeof($lists);
-      $results = $this->mailinAPI->getListsFromFolder($folderId);
+      $results = $this->mailin->getListsFromFolder($folderId);
       $resultIds = array_keys($results);
       sort($expectedIds);
       sort($resultIds);
@@ -258,14 +257,14 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
-   * @covers Mailin\MailinAPI::findListsByName
+   * @covers Mailin\API::findListsByName
    * @depends testAddList
    */
   public function testFindListsByName(array $foldersLists) {
     foreach ($foldersLists as $folderId => $lists) {
       foreach (array_count_values($lists) as $listName => $count) {
         $expectedIds = array_keys($lists, $listName);
-        $results = $this->mailinAPI->findListsByName($listName, $folderId);
+        $results = $this->mailin->findListsByName($listName, $folderId);
         $resultIds = array_keys($results);
         sort($expectedIds);
         sort($resultIds);
@@ -283,10 +282,10 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
-   * @covers Mailin\MailinAPI::getAttributes
+   * @covers Mailin\API::getAttributes
    */
   public function testGetAttributes() {
-    $result = $this->mailinAPI->getAttributes();
+    $result = $this->mailin->getAttributes();
     $this->assertInternalType('array', $result);
 
     // There is at least some locked attributes, so the result should not
@@ -294,34 +293,34 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
     $this->assertNotEmpty($result, 'Getting attribute list failed.');
     $this->assertCallcount(1);
 
-    $this->assertEquals(array(), $this->mailinAPI->getAttributes(array('unexisting-type')));
+    $this->assertEquals(array(), $this->mailin->getAttributes(array('unexisting-type')));
     $this->assertCallcount(0);
   }
 
   /**
-   * @covers Mailin\MailinAPI::addAttributes
+   * @covers Mailin\API::addAttributes
    */
   public function testAddAttributes() {
     $callback = array('\MailinTestHelper', 'randomName');
     $args = array(8, 'TEST-', 1, FALSE, '_-');
 
     $attributes = array(
-      MailinAPI::ATTRIBUTE_NORMAL => array(
-        new MA\MailinAttributeNormal(array(
+      Mailin::ATTRIBUTE_NORMAL => array(
+        new MA\Normal(array(
           'name' => call_user_func_array($callback, $args),
-          'type' => MailinAPI::ATTRIBUTE_DATA_TYPE_TEXT,
+          'type' => Mailin::ATTRIBUTE_DATA_TYPE_TEXT,
         )),
-        new MA\MailinAttributeNormal(array(
+        new MA\Normal(array(
           'name' => call_user_func_array($callback, $args),
-          'type' => MailinAPI::ATTRIBUTE_DATA_TYPE_NUMBER,
+          'type' => Mailin::ATTRIBUTE_DATA_TYPE_NUMBER,
         )),
-        new MA\MailinAttributeNormal(array(
+        new MA\Normal(array(
           'name' => call_user_func_array($callback, $args),
-          'type' => MailinAPI::ATTRIBUTE_DATA_TYPE_DATE,
+          'type' => Mailin::ATTRIBUTE_DATA_TYPE_DATE,
         )),
       ),
-      MailinAPI::ATTRIBUTE_CATEGORY => array(
-        new MA\MailinAttributeCategory(array(
+      Mailin::ATTRIBUTE_CATEGORY => array(
+        new MA\Category(array(
           'name' => call_user_func_array($callback, $args),
           'enumeration' => array(
             \MailinTestHelper::randomName(),
@@ -332,15 +331,15 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
       ),
     );
 
-    $this->assertTrue($this->mailinAPI->addAttributes($attributes), 'Attributes creation failed.');
+    $this->assertTrue($this->mailin->addAttributes($attributes), 'Attributes creation failed.');
     $this->assertCallcount();
 
-    $results = $this->mailinAPI->getAttributes(array(MailinAPI::ATTRIBUTE_NORMAL, MailinAPI::ATTRIBUTE_CATEGORY));
+    $results = $this->mailin->getAttributes(array(Mailin::ATTRIBUTE_NORMAL, Mailin::ATTRIBUTE_CATEGORY));
     $this->assertTrue(sizeof($results) === 2, 'Getting attribute list failed.');
     $this->assertCallcount(1);
 
     $missing = $attributes;
-    $filter = new MA\MailinAttributesFilter($results);
+    $filter = new MA\Filter($results);
 
     // Check attributes correspondence.
     foreach ($attributes as $attributeType => $attributeInstances) {
@@ -349,13 +348,13 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
 
         if ($found = $filter->getOne()) {
           switch ($attributeType) {
-            case MailinAPI::ATTRIBUTE_NORMAL:
+            case Mailin::ATTRIBUTE_NORMAL:
               if ($found->getDataType() === $attribute->getDataType()) {
                 unset($missing[$attributeType][$key]);
               }
               break;
 
-            case MailinAPI::ATTRIBUTE_CATEGORY:
+            case Mailin::ATTRIBUTE_CATEGORY:
               if (!array_diff($attribute->getEnumeration(TRUE), $found->getEnumeration(TRUE))) {
                 unset($missing[$attributeType][$key]);
               }
@@ -375,30 +374,30 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
         'message' => 'Attribute creation using an invalid attribute type should fail.',
       ),
       array(
-        'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => 'not-array'),
+        'attribute' => array(Mailin::ATTRIBUTE_NORMAL => 'not-array'),
         'message' => 'Attribute creation using an invalid structure should fail.',
       ),
       array(
-        'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array(
-          new MA\MailinAttributeNormal(array('name' => 'INVALID NAME', 'type' => MailinAPI::ATTRIBUTE_DATA_TYPE_TEXT)),
+        'attribute' => array(Mailin::ATTRIBUTE_NORMAL => array(
+          new MA\Normal(array('name' => 'INVALID NAME', 'type' => Mailin::ATTRIBUTE_DATA_TYPE_TEXT)),
         )),
         'message' => 'Attribute creation using an invalid name should fail.',
       ),
       array(
-        'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array(
-          new MA\MailinAttributeNormal(array('name' => $validAttributeName, 'type' => 'INVALID_DATA_TYPE')),
+        'attribute' => array(Mailin::ATTRIBUTE_NORMAL => array(
+          new MA\Normal(array('name' => $validAttributeName, 'type' => 'INVALID_DATA_TYPE')),
         )),
         'message' => 'Attribute creation using an unexisting data type should fail.',
       ),
       array(
-        'attribute' => array(MailinAPI::ATTRIBUTE_NORMAL => array(
-          new MA\MailinAttributeNormal(array('name' => $validAttributeName, 'type' => MailinAPI::ATTRIBUTE_DATA_TYPE_ID)),
+        'attribute' => array(Mailin::ATTRIBUTE_NORMAL => array(
+          new MA\Normal(array('name' => $validAttributeName, 'type' => Mailin::ATTRIBUTE_DATA_TYPE_ID)),
         )),
         'message' => 'Attribute creation using an unsupported data type should fail.',
       ),
       array(
-        'attribute' => array(MailinAPI::ATTRIBUTE_CATEGORY => array(
-          new MA\MailinAttributeCategory(array('name' => $validAttributeName)),
+        'attribute' => array(Mailin::ATTRIBUTE_CATEGORY => array(
+          new MA\Category(array('name' => $validAttributeName)),
         )),
         'message' => 'Category attribute creation using no enumeration should fail.',
       ),
@@ -406,7 +405,7 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
 
     foreach ($invalid as $test) {
       $test += array('increment' => 0);
-      $this->assertFalse($this->mailinAPI->addAttributes($test['attribute']), $test['message']);
+      $this->assertFalse($this->mailin->addAttributes($test['attribute']), $test['message']);
       $this->assertCallcount($test['increment']);
     }//end foreach
 
@@ -418,50 +417,50 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
-   * @covers Mailin\MailinAPI::deleteAttributes
+   * @covers Mailin\API::deleteAttributes
    * @depends testAddAttributes
    */
   public function testDeleteAttributes(array $attributes) {
-    $this->markTestIncomplete('There is an issue with this action in Mailin server. This should be resolved soon, but awaiting a fix the test is skipped.');
-    return;
-
-    $attributes = array_map('array_keys', $attributes);
-    $this->assertTrue($this->mailinAPI->deleteAttributes($attributes), 'Attributes deletion failed.');
+    $this->assertTrue($this->mailin->deleteAttributes($attributes), 'Attributes deletion failed.');
     $this->assertCallcount();
 
     // Check if the attributes were really deleted.
-    $results = $this->mailinAPI->getAttributes();
-    $this->assertCallcount(1);
+    $results = $this->mailin->getAttributes();
+    $this->assertCallcount();
 
-    foreach ($results as $attributeType => $fetchedAttributes) {
-      foreach ($fetchedAttributes as $attribute) {
-        if (in_array($attribute['name'], $attributes[$attributeType])) {
-          $this->fail('Atribute with name ' . $attribute['name'] . ' still exists while it should have been deleted.');
+    $filter = new MA\Filter($results);
+
+    foreach ($attributes as $attributeType => $instances) {
+      foreach ($instances as $attribute) {
+        $filter->setFilters(array('type' => $attributeType, 'name' => $attribute->getName()));
+
+        if ($found = $filter->getOne()) {
+          $this->fail('Atribute with name ' . $found->getName() . ' still exists while it should have been deleted.');
         }
       }
     }//end foreach
   }
 
   /**
-   * @covers Mailin\MailinAPI::saveUser
+   * @covers Mailin\API::saveUser
    * @depends testAddList
    */
   public function testSaveUser(array $foldersLists) {
     $listId = key(reset($foldersLists));
 
     $userEmail = \MailinTestHelper::randomEmail();
-    $userId = $this->mailinAPI->saveUser($userEmail, array($listId));
+    $userId = $this->mailin->saveUser($userEmail, array($listId));
     $this->assertTrue(is_numeric($userId), "Creation of user $userEmail failed.");
-    $result = $this->mailinAPI->getUserStatus(array($userEmail));
+    $result = $this->mailin->getUserStatus(array($userEmail));
     $this->assertInternalType('array', $result, "Impossible to retrieve user $userEmail related data.");
     $this->assertEquals(reset($result), 0, "User $userEmail status is incorrect.");
     $this->assertCallcount(2);
 
     // Create now a user who is blacklisted.
     $userEmail2 = \MailinTestHelper::randomEmail();
-    $userId2 = $this->mailinAPI->saveUser($userEmail2, array($listId), array(), TRUE);
+    $userId2 = $this->mailin->saveUser($userEmail2, array($listId), array(), TRUE);
     $this->assertTrue(is_numeric($userId2), "Creation of user $userEmail2 failed.");
-    $result = $this->mailinAPI->getUserStatus(array($userEmail2));
+    $result = $this->mailin->getUserStatus(array($userEmail2));
     $this->assertInternalType('array', $result, "Impossible to retrieve user $userEmail2 related data.");
     $this->assertEquals(reset($result), 1, "User $userEmail2 status is incorrect.");
     $this->assertCallcount(2);
@@ -477,19 +476,19 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
-   * @covers Mailin\MailinAPI::saveUsers
+   * @covers Mailin\API::saveUsers
    */
   public function testSaveUsers() {
     $this->markTestIncomplete();
   }
 
   /**
-   * @covers Mailin\MailinAPI::getUserStatus
+   * @covers Mailin\API::getUserStatus
    * @depends testSaveUser
    */
   public function testGetUserStatus(array $users) {
     $expected = array_map(function ($user) { return $user['status']; }, $users);
-    $results = $this->mailinAPI->getUserStatus(array_keys($users));
+    $results = $this->mailin->getUserStatus(array_keys($users));
     ksort($expected);
     ksort($results);
     $this->assertInternalType('array', $results, "Users status retrieve operation failed.");
@@ -498,30 +497,30 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
-   * @covers Mailin\MailinAPI::blockUser
+   * @covers Mailin\API::blockUser
    * @depends testSaveUser
    */
   public function testBlockUser(array $users) {
     list($userEmail, ) = each($users);
-    $this->assertTrue($this->mailinAPI->blockUser($userEmail), "The user $userEmail was blacklisted.");
-    $this->assertEquals($this->mailinAPI->getUserStatus(array($userEmail)), array($userEmail => 1), 'The user status is wrong.');
+    $this->assertTrue($this->mailin->blockUser($userEmail), "The user $userEmail was blacklisted.");
+    $this->assertEquals($this->mailin->getUserStatus(array($userEmail)), array($userEmail => 1), 'The user status is wrong.');
     $this->assertCallcount(2);
   }
 
   /**
-   * @covers Mailin\MailinAPI::unblockUser
+   * @covers Mailin\API::unblockUser
    * @depends testSaveUser
    * @depends testBlockUser
    */
   public function testUnblockUser(array $users) {
     list($userEmail, ) = each($users);
-    $this->assertTrue($this->mailinAPI->unblockUser($userEmail), "The user $userEmail was removed from blacklist.");
-    $this->assertEquals($this->mailinAPI->getUserStatus(array($userEmail)), array($userEmail => 0), 'The user status is wrong.');
+    $this->assertTrue($this->mailin->unblockUser($userEmail), "The user $userEmail was removed from blacklist.");
+    $this->assertEquals($this->mailin->getUserStatus(array($userEmail)), array($userEmail => 0), 'The user status is wrong.');
     $this->assertCallcount(2);
   }
 
   /**
-   * @covers Mailin\MailinAPI::deleteList
+   * @covers Mailin\API::deleteList
    * @depends testAddList
    * @depends testFindList
    *
@@ -533,15 +532,15 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
     list($folderId, ) = array_keys($foldersLists);
 
     foreach ($foldersLists[$folderId] as $listId => $listName) {
-      $this->assertTrue($this->mailinAPI->deleteList($listId), "List $listName with ID $listId was not deleted.");
+      $this->assertTrue($this->mailin->deleteList($listId), "List $listName with ID $listId was not deleted.");
       $this->assertCallcount();
 
       // Verify that the list has really been removed from the Mailin server.
-      $this->assertFalse($this->mailinAPI->findList($listId), "List $listName with ID $listId was not removed.");
+      $this->assertFalse($this->mailin->findList($listId), "List $listName with ID $listId was not removed.");
       $this->assertCallcount();
 
       // Try now to delete a non-existing list.
-      $this->assertFalse($this->mailinAPI->deleteList($listId), "List with unexisting ID $listId could not be deleted.");
+      $this->assertFalse($this->mailin->deleteList($listId), "List with unexisting ID $listId could not be deleted.");
       $this->assertCallcount();
     }//end foreach
 
@@ -550,28 +549,28 @@ class MailinAPITest extends \PHPUnit_Framework_TestCase {
   }
 
   /**
-   * @covers Mailin\MailinAPI::testDeleteFolder
+   * @covers Mailin\API::testDeleteFolder
    * @depends testAddFolder
    * @depends testDeleteList
    * @depends testFindFolder
    */
   public function testDeleteFolder(array $folders, array $foldersLists) {
     foreach ($folders as $folderId => $folderName) {
-      $this->assertTrue($this->mailinAPI->deleteFolder($folderId), "Folder $folderName with ID $folderId was not deleted.");
+      $this->assertTrue($this->mailin->deleteFolder($folderId), "Folder $folderName with ID $folderId was not deleted.");
       $this->assertCallcount();
 
       // Verify that the folder has really been removed from the Mailin server.
-      $this->assertFalse($this->mailinAPI->findFolder($folderId), "Folder $folderName with ID $folderId was not removed.");
+      $this->assertFalse($this->mailin->findFolder($folderId), "Folder $folderName with ID $folderId was not removed.");
       $this->assertCallcount();
 
       // Try now to delete a non-existing folder.
-      $this->assertFalse($this->mailinAPI->deleteFolder($folderId), "Folder with unexisting ID $folderId could not deleted.");
+      $this->assertFalse($this->mailin->deleteFolder($folderId), "Folder with unexisting ID $folderId could not deleted.");
       $this->assertCallcount();
 
       // Ensure that child lists have also been deleted.
       if (!empty($foldersLists[$folderId])) {
         foreach ($foldersLists[$folderId] as $listId => $listName) {
-          $this->assertFalse($this->mailinAPI->findList($listId), "List $listName with ID $listId was not removed while deleting its parent folder.");
+          $this->assertFalse($this->mailin->findList($listId), "List $listName with ID $listId was not removed while deleting its parent folder.");
           $this->assertCallcount();
         }//end foreach
       }

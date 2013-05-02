@@ -7,12 +7,10 @@
 
 namespace Mailin\Response;
 
-use Mailin\Response\MailinResponseInterface;
-
 /**
  * The Mailin Response class.
  */
-class MailinResponse implements MailinResponseInterface, \ArrayAccess {
+class Response implements ResponseInterface, \ArrayAccess {
 
   /**
    * The response parsed data.

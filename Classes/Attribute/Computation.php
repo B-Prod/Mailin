@@ -7,13 +7,12 @@
 
 namespace Mailin\Attribute;
 
-use Mailin\Attribute\MailinAttribute;
-use Mailin\MailinAPI;
+use Mailin\API as Mailin;
 
 /**
  * The Mailin Attribute Computation class.
  */
-class MailinAttributeComputation extends MailinAttribute {
+class Computation extends Attribute {
 
   /**
    * The computed formula.
@@ -54,7 +53,7 @@ class MailinAttributeComputation extends MailinAttribute {
    *
    * @param $formula
    *
-   * @return MailinAttributeInterface
+   * @return Mailin\Attribute\AttributeInterface
    */
   public function setFormula($formula) {
     $this->formula = $formula;
@@ -65,9 +64,8 @@ class MailinAttributeComputation extends MailinAttribute {
    * @inheritdoc
    */
   public function getType() {
-    return MailinAPI::ATTRIBUTE_COMPUTATION;
+    return Mailin::ATTRIBUTE_COMPUTATION;
   }
-
 
   /**
    * @inheritdoc

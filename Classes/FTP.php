@@ -10,7 +10,7 @@ namespace Mailin;
 /**
  * The Mailin FTP class.
  */
-class MailinFtp {
+class FTP {
 
   /**
    * The IP of the Mailin FTP server.
