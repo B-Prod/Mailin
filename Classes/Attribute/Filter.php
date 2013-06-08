@@ -86,7 +86,7 @@ class Filter extends \FilterIterator {
    *
    * @param $attributes
    *
-   * @return Mailin\Attribute\Filter
+   * @return Filter
    */
   public function setAttributes(array $attributes) {
     $array = array();
@@ -104,13 +104,14 @@ class Filter extends \FilterIterator {
    *
    * @param $filters
    *
-   * @return Mailin\Attribute\Filter
+   * @return Filter
    */
-  public function setFilters(array $filters) {
+  public function setFilters(array $filters = array()) {
     $this->filters = array();
 
     foreach ($filters as $property => $value) {
       $negate = FALSE;
+      $arguments = array();
 
       if (is_array($value) && array_key_exists('value', $value)) {
         if (isset($value['negate'])) {
@@ -118,10 +119,15 @@ class Filter extends \FilterIterator {
           unset($value['negate']);
         }
 
+        if (isset($value['arguments'])) {
+          $arguments = $value['arguments'];
+          unset($value['arguments']);
+        }
+
         $value = $value['value'];
       }
 
-      $this->setFilter($property, $value, $negate);
+      $this->setFilter($property, $value, $arguments, $negate);
     }//end foreach
 
     return $this;
@@ -136,14 +142,15 @@ class Filter extends \FilterIterator {
    * @param $property
    *   The property to filter on.
    * @param $value
+   * @param $arguments
    * @param $negate
    *
-   * @return Mailin\Attribute\Filter
+   * @return Filter
    *
-   * @see Mailin\Attribute\FilterCriteria::__construct()
+   * @see FilterCriteria::__construct()
    */
-  public function setFilter($property, $value, $negate = FALSE) {
-    $this->filters[$property] = new FilterCriterium($value, $negate);
+  public function setFilter($property, $value, array $arguments = array(), $negate = FALSE) {
+    $this->filters[$property] = new FilterCriterium($value, $arguments, $negate);
     return $this;
   }
 
@@ -174,7 +181,7 @@ class Filter extends \FilterIterator {
       foreach ($this->filters as $property => $criterium) {
         $getter = 'get' . ucfirst($property);
 
-        if (!is_callable(array($current, $getter)) || !$criterium->match($current->{$getter}())) {
+        if (!is_callable(array($current, $getter)) || !$criterium->match(call_user_func_array(array($current, $getter), $criterium->getArguments()))) {
           $match = FALSE;
           break;
         }

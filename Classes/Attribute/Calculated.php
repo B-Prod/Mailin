@@ -7,8 +7,6 @@
 
 namespace Mailin\Attribute;
 
-use Mailin\API as Mailin;
-
 /**
  * The Mailin Attribute Calculated class.
  */
@@ -17,8 +15,11 @@ class Calculated extends Computation {
   /**
    * @inheritdoc
    */
-  public function getType() {
-    return Mailin::ATTRIBUTE_CALCULATED;
+  public static function attributeEntityMap() {
+    return array(
+      'list' => self::ATTRIBUTE_LIST_CALCULATED,
+      'user' => self::ATTRIBUTE_USER_CALCULATED,
+    );
   }
 
 }

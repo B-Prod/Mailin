@@ -7,8 +7,6 @@
 
 namespace Mailin\Attribute;
 
-use Mailin\API as Mailin;
-
 /**
  * The Mailin Attribute Normal class.
  */
@@ -24,8 +22,8 @@ class Normal extends Attribute {
   /**
    * @inheritdoc
    */
-  public function __construct(array $attribute) {
-    parent::__construct($attribute);
+  public function __construct(array $attribute = array(), $value = NULL) {
+    parent::__construct($attribute, $value);
 
     if (isset($attribute['type'])) {
       $this->setDataType($attribute['type']);
@@ -46,9 +44,9 @@ class Normal extends Attribute {
    */
   public function getAllowedDataTypes() {
     return array(
-      Mailin::ATTRIBUTE_DATA_TYPE_TEXT,
-      Mailin::ATTRIBUTE_DATA_TYPE_NUMBER,
-      Mailin::ATTRIBUTE_DATA_TYPE_DATE,
+      self::ATTRIBUTE_DATA_TYPE_TEXT,
+      self::ATTRIBUTE_DATA_TYPE_NUMBER,
+      self::ATTRIBUTE_DATA_TYPE_DATE,
     );
   }
 
@@ -66,7 +64,7 @@ class Normal extends Attribute {
    *
    * @param $dataType
    *
-   * @return Mailin\Attribute\AttributeInterface
+   * @return AttributeInterface
    */
   public function setDataType($dataType) {
     $dataType = strtoupper($dataType);
@@ -81,15 +79,18 @@ class Normal extends Attribute {
   /**
    * @inheritdoc
    */
-  public function getType() {
-    return Mailin::ATTRIBUTE_NORMAL;
+  public function isValid() {
+    return !empty($this->name) && isset($this->dataType);
   }
 
   /**
    * @inheritdoc
    */
-  public function isValid() {
-    return !empty($this->name) && isset($this->dataType);
+  public static function attributeEntityMap() {
+    return array(
+      'list' => self::ATTRIBUTE_LIST_NORMAL,
+      'user' => self::ATTRIBUTE_USER_NORMAL,
+    );
   }
 
 }

@@ -20,6 +20,13 @@ class FilterCriterium {
   protected $criterium;
 
   /**
+   * The filter criterium arguments.
+   *
+   * @var array
+   */
+  protected $arguments;
+
+  /**
    * Whether the matching condition is inversed or not.
    *
    * @var boolean
@@ -34,14 +41,26 @@ class FilterCriterium {
    *
    * @param $criterium
    *   May be either a single value or a list of values.
+   * @param $arguments
+   *   The arguments for the getter function.
    * @param $negate
    *   If TRUE, the filter matches when the given property has not the specified value.
    *
-   * @return Mailin\Attribute\FilterCriterium
+   * @return FilterCriterium
    */
-  public function __construct($criterium, $negate = FALSE) {
+  public function __construct($criterium, array $arguments = array(), $negate = FALSE) {
     $this->criterium = $criterium;
+    $this->arguments = $arguments;
     $this->negate = $negate;
+  }
+
+  /**
+   * Get the callback arguments.
+   *
+   * @return array
+   */
+  public function getArguments() {
+    return $this->arguments;
   }
 
   /**

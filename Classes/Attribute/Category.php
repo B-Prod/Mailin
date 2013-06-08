@@ -7,8 +7,6 @@
 
 namespace Mailin\Attribute;
 
-use Mailin\API as Mailin;
-
 /**
  * The Mailin Attribute Category class.
  */
@@ -24,8 +22,8 @@ class Category extends Attribute {
   /**
    * @inheritdoc
    */
-  public function __construct(array $attribute) {
-    parent::__construct($attribute);
+  public function __construct(array $attribute = array(), $value = NULL) {
+    parent::__construct($attribute, $value);
 
     if (isset($attribute['enumeration'])) {
       $this->setEnumeration($attribute['enumeration']);
@@ -46,13 +44,6 @@ class Category extends Attribute {
   }
 
   /**
-   * @inheritdoc
-   */
-  public function getType() {
-    return Mailin::ATTRIBUTE_CATEGORY;
-  }
-
-  /**
    * Get the category items.
    *
    * @param $labelOnly
@@ -70,7 +61,7 @@ class Category extends Attribute {
    * @param $items
    *   An array of item names.
    *
-   * @return Mailin\Attribute\AttributeInterface
+   * @return AttributeInterface
    */
   public function setEnumeration(array $items) {
     $this->enumeration = array();
@@ -106,7 +97,7 @@ class Category extends Attribute {
    * @param $value
    *   The item value.
    *
-   * @return Mailin\Attribute\AttributeInterface
+   * @return AttributeInterface
    */
   public function addEnumerationItem($label, $value = NULL) {
     if (is_string($label) && strlen($label) && (is_null($value) || is_numeric($value))) {
@@ -124,6 +115,16 @@ class Category extends Attribute {
    */
   public function isValid() {
     return !empty($this->name) && !empty($this->enumeration);
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public static function attributeEntityMap() {
+    return array(
+      'list' => self::ATTRIBUTE_LIST_CATEGORY,
+      'user' => self::ATTRIBUTE_USER_CATEGORY,
+    );
   }
 
 }

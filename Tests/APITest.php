@@ -7,9 +7,10 @@
 
 namespace Mailin\Tests;
 
-use Mailin\Attribute as MA;
 use Mailin\API as Mailin;
+use Mailin\Attribute as MA;
 use Mailin\Log;
+use Mailin\User;
 
 /**
  * Test class for the Mailin API class.
@@ -27,7 +28,7 @@ class APITest extends \PHPUnit_Framework_TestCase {
   /**
    * The Mailin API instance.
    *
-   * @var Mailin\API
+   * @var Mailin
    */
   protected $mailin;
 
@@ -201,6 +202,11 @@ class APITest extends \PHPUnit_Framework_TestCase {
     $this->assertFalse(in_array($listId4, array($listId, $listId2, $listId3)), 'The three lists should not have the same ID.');
     $this->assertCallcount(2); // 2 API calls.
 
+    // Check now that the created lists are present on the Mailin server.
+    $lists = array_fill_keys(array($listId, $listId2, $listId3, $listId4), TRUE);
+    $this->assertTrue(count(array_intersect_key($lists, $this->mailin->getLists())) === 4, 'All the expected lists are not present on the Mailin server.');
+    $this->assertCallcount();
+
     return array(
       $folderId => array($listId => $listName, $listId2 => $listName2, $listId3 => $listName),
       $folderId2 => array($listId4 => $listName),
@@ -305,21 +311,21 @@ class APITest extends \PHPUnit_Framework_TestCase {
     $args = array(8, 'TEST-', 1, FALSE, '_-');
 
     $attributes = array(
-      Mailin::ATTRIBUTE_NORMAL => array(
+      MA\AttributeInterface::ATTRIBUTE_LIST_NORMAL => array(
         new MA\Normal(array(
           'name' => call_user_func_array($callback, $args),
-          'type' => Mailin::ATTRIBUTE_DATA_TYPE_TEXT,
+          'type' => MA\AttributeInterface::ATTRIBUTE_DATA_TYPE_TEXT,
         )),
         new MA\Normal(array(
           'name' => call_user_func_array($callback, $args),
-          'type' => Mailin::ATTRIBUTE_DATA_TYPE_NUMBER,
+          'type' => MA\AttributeInterface::ATTRIBUTE_DATA_TYPE_NUMBER,
         )),
         new MA\Normal(array(
           'name' => call_user_func_array($callback, $args),
-          'type' => Mailin::ATTRIBUTE_DATA_TYPE_DATE,
+          'type' => MA\AttributeInterface::ATTRIBUTE_DATA_TYPE_DATE,
         )),
       ),
-      Mailin::ATTRIBUTE_CATEGORY => array(
+      MA\AttributeInterface::ATTRIBUTE_LIST_CATEGORY => array(
         new MA\Category(array(
           'name' => call_user_func_array($callback, $args),
           'enumeration' => array(
@@ -334,7 +340,7 @@ class APITest extends \PHPUnit_Framework_TestCase {
     $this->assertTrue($this->mailin->addAttributes($attributes), 'Attributes creation failed.');
     $this->assertCallcount();
 
-    $results = $this->mailin->getAttributes(array(Mailin::ATTRIBUTE_NORMAL, Mailin::ATTRIBUTE_CATEGORY));
+    $results = $this->mailin->getAttributes(array(MA\AttributeInterface::ATTRIBUTE_LIST_NORMAL, MA\AttributeInterface::ATTRIBUTE_LIST_CATEGORY));
     $this->assertTrue(sizeof($results) === 2, 'Getting attribute list failed.');
     $this->assertCallcount(1);
 
@@ -348,13 +354,13 @@ class APITest extends \PHPUnit_Framework_TestCase {
 
         if ($found = $filter->getOne()) {
           switch ($attributeType) {
-            case Mailin::ATTRIBUTE_NORMAL:
+            case MA\AttributeInterface::ATTRIBUTE_LIST_NORMAL:
               if ($found->getDataType() === $attribute->getDataType()) {
                 unset($missing[$attributeType][$key]);
               }
               break;
 
-            case Mailin::ATTRIBUTE_CATEGORY:
+            case MA\AttributeInterface::ATTRIBUTE_LIST_CATEGORY:
               if (!array_diff($attribute->getEnumeration(TRUE), $found->getEnumeration(TRUE))) {
                 unset($missing[$attributeType][$key]);
               }
@@ -374,29 +380,29 @@ class APITest extends \PHPUnit_Framework_TestCase {
         'message' => 'Attribute creation using an invalid attribute type should fail.',
       ),
       array(
-        'attribute' => array(Mailin::ATTRIBUTE_NORMAL => 'not-array'),
+        'attribute' => array(MA\AttributeInterface::ATTRIBUTE_LIST_NORMAL => 'not-array'),
         'message' => 'Attribute creation using an invalid structure should fail.',
       ),
       array(
-        'attribute' => array(Mailin::ATTRIBUTE_NORMAL => array(
-          new MA\Normal(array('name' => 'INVALID NAME', 'type' => Mailin::ATTRIBUTE_DATA_TYPE_TEXT)),
+        'attribute' => array(MA\AttributeInterface::ATTRIBUTE_LIST_NORMAL => array(
+          new MA\Normal(array('name' => 'INVALID NAME', 'type' => MA\AttributeInterface::ATTRIBUTE_DATA_TYPE_TEXT)),
         )),
         'message' => 'Attribute creation using an invalid name should fail.',
       ),
       array(
-        'attribute' => array(Mailin::ATTRIBUTE_NORMAL => array(
+        'attribute' => array(MA\AttributeInterface::ATTRIBUTE_LIST_NORMAL => array(
           new MA\Normal(array('name' => $validAttributeName, 'type' => 'INVALID_DATA_TYPE')),
         )),
         'message' => 'Attribute creation using an unexisting data type should fail.',
       ),
       array(
-        'attribute' => array(Mailin::ATTRIBUTE_NORMAL => array(
-          new MA\Normal(array('name' => $validAttributeName, 'type' => Mailin::ATTRIBUTE_DATA_TYPE_ID)),
+        'attribute' => array(MA\AttributeInterface::ATTRIBUTE_LIST_NORMAL => array(
+          new MA\Normal(array('name' => $validAttributeName, 'type' => MA\AttributeInterface::ATTRIBUTE_DATA_TYPE_ID)),
         )),
         'message' => 'Attribute creation using an unsupported data type should fail.',
       ),
       array(
-        'attribute' => array(Mailin::ATTRIBUTE_CATEGORY => array(
+        'attribute' => array(MA\AttributeInterface::ATTRIBUTE_LIST_CATEGORY => array(
           new MA\Category(array('name' => $validAttributeName)),
         )),
         'message' => 'Category attribute creation using no enumeration should fail.',
@@ -465,14 +471,112 @@ class APITest extends \PHPUnit_Framework_TestCase {
     $this->assertEquals(reset($result), 1, "User $userEmail2 status is incorrect.");
     $this->assertCallcount(2);
 
-    // @todo add a test with unexisting list ID.
-    // @todo add a test without any list ID.
-    // @todo save also attributes.
+    // Create a user who is registered on an unexisting list.
+    do {
+      $unexistingListId = rand(1, 9999);
+      self::$apiCallsCount++;
+    }
+    while (FALSE !== $this->mailin->getList($unexistingListId));
+
+    $this->assertCallcount(0);
+
+    $userEmail3 = \MailinTestHelper::randomEmail();
+    $userId3 = $this->mailin->saveUser($userEmail3, array($unexistingListId));
+    $this->assertTrue(is_numeric($userId3), "Creation of user $userEmail3 failed.");
+    $user = $this->mailin->getUser($userEmail3);
+    $this->assertTrue(is_object($user) && $user instanceof User, "Impossible to retrieve user $userEmail3 related data.");
+    $this->assertFalse($user->isRegistered($unexistingListId), "User $userEmail3 should not be registred on a unexisting list.");
+    $this->assertCallcount(2);
+
+    // Create a user without spécifying any list ID.
+    $userEmail4 = \MailinTestHelper::randomEmail();
+    $this->assertFalse($this->mailin->saveUser($userEmail4, array()), "Creation of user $userEmail4 without list ID should fail.");
+    $this->assertCallcount(0);
+    $this->assertFalse($this->mailin->saveUser($userEmail4, array(0)), "Creation of user $userEmail4 with 0 as list ID should fail.");
+    $this->assertCallcount(0);
+    $this->assertFalse($this->mailin->saveUser($userEmail4, array('')), "Creation of user $userEmail4 with empty string as list ID should fail.");
+    $this->assertCallcount(0);
+
+    // @todo save a user registered on multiple lists.
 
     return array(
       $userEmail => array('id' => $userId, 'listId' => $listId, 'status' => 0),
       $userEmail2 => array('id' => $userId2, 'listId' => $listId, 'status' => 1),
     );
+  }
+
+  /**
+   * @covers Mailin\API::saveUser
+   * @covers Mailin\API::getUser
+   * @depends testAddList
+   * @depends testAddAttributes
+   */
+  public function testSaveUserWithAttributes(array $foldersLists, array $attributes) {
+    $listId = key(reset($foldersLists));
+    $userEmail = \MailinTestHelper::randomEmail();
+    $userAttributes = array();
+
+    foreach ($attributes as $attributeType => $attributeInstances) {
+      foreach ($attributeInstances as $attribute) {
+        switch ($attributeType) {
+
+          case MA\AttributeInterface::ATTRIBUTE_LIST_NORMAL:
+            switch ($attribute->getDataType()) {
+
+              case MA\AttributeInterface::ATTRIBUTE_DATA_TYPE_TEXT:
+                $userAttributes[$attribute->getName()] = \MailinTestHelper::randomName();
+                break;
+
+              case MA\AttributeInterface::ATTRIBUTE_DATA_TYPE_NUMBER:
+                $userAttributes[$attribute->getName()] = rand(1, 1000) . '.' . rand(1, 9);
+                break;
+
+              case MA\AttributeInterface::ATTRIBUTE_DATA_TYPE_DATE:
+                $timestamp = rand(0, 1451602799); // january 1st, 1970 to december 31, 2015
+                $userAttributes[$attribute->getName()] = date('Y-m-d', $timestamp);
+                break;
+            }//end switch
+            break;
+
+          case MA\AttributeInterface::ATTRIBUTE_LIST_CATEGORY:
+            $enumeration = $attribute->getEnumeration();
+            $key = array_rand($enumeration);
+            $userAttributes[$attribute->getName()] = $enumeration[$key]['value'];
+            break;
+
+        }//end switch
+
+      }//end foreach
+    }//end foreach
+
+    // Tests on user creation.
+    $userId = $this->mailin->saveUser($userEmail, array($listId), $userAttributes);
+    $this->assertTrue(is_numeric($userId), "Creation of user $userEmail failed.");
+    $user = $this->mailin->getUser($userEmail);
+    $this->assertTrue(is_object($user) && $user instanceof User, "Impossible to retrieve user $userEmail related data.");
+    $this->assertCallcount(2);
+
+    // Tests on user attributes.
+    foreach ($attributes as $attributeType => $attributeInstances) {
+      foreach ($attributeInstances as $attribute) {
+        if (array_key_exists($attribute->getName(), $userAttributes)) {
+          // Do not forget that User attribute types are not always the same as
+          // Attribute types.
+          $map = call_user_func(array(get_class($attribute), 'attributeEntityMap'));
+
+          if (isset($map['user'])) {
+            $handler = $user->getAttribute($map['user'], $attribute->getName());
+
+            if (!isset($handler)) {
+              $this->fail("The attribute {$attribute->getName()} was not saved.");
+            }
+            else {
+              $this->assertEquals($handler->getValue(), $userAttributes[$attribute->getName()], "Saved data for {$attribute->getName()} attribute does not match the expected one: {$userAttributes[$attribute->getName()]}.");
+            }
+          }
+        }
+      }//end foreach
+    }//end foreach
   }
 
   /**

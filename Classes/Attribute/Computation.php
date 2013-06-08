@@ -7,8 +7,6 @@
 
 namespace Mailin\Attribute;
 
-use Mailin\API as Mailin;
-
 /**
  * The Mailin Attribute Computation class.
  */
@@ -24,8 +22,8 @@ class Computation extends Attribute {
   /**
    * @inheritdoc
    */
-  public function __construct(array $attribute) {
-    parent::__construct($attribute);
+  public function __construct(array $attribute = array(), $value = NULL) {
+    parent::__construct($attribute, $value);
 
     if (isset($attribute['value'])) {
       $this->setFormula($attribute['value']);
@@ -53,18 +51,11 @@ class Computation extends Attribute {
    *
    * @param $formula
    *
-   * @return Mailin\Attribute\AttributeInterface
+   * @return AttributeInterface
    */
   public function setFormula($formula) {
     $this->formula = $formula;
     return $this;
-  }
-
-  /**
-   * @inheritdoc
-   */
-  public function getType() {
-    return Mailin::ATTRIBUTE_COMPUTATION;
   }
 
   /**
@@ -75,6 +66,15 @@ class Computation extends Attribute {
    */
   public function isValid() {
     return !empty($this->name) && isset($this->formula);
+  }
+
+  /**
+   * @inheritdoc
+   */
+  public static function attributeEntityMap() {
+    return array(
+      'list' => self::ATTRIBUTE_LIST_COMPUTATION,
+    );
   }
 
 }

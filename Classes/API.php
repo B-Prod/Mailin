@@ -7,7 +7,7 @@
 
 namespace Mailin;
 
-use Mailin\Attribute\AttributeInterface;
+use Mailin\Attribute as MA;
 use Mailin\Request AS MR;
 use Mailin\Response\Response;
 
@@ -55,6 +55,11 @@ class API {
    * Action that delete a set of attributes.
    */
   const ACTION_ATTRIBUTE_DELETE = 'DELETE-ATTRIBUTES';
+
+  /**
+   * Action that retrieves data about one or more users.
+   */
+  const ACTION_USER_DETAILS = 'SUBSCRIBER-DETAILS';
 
   /**
    * Action that exposes the user statuses.
@@ -121,51 +126,6 @@ class API {
   const TYPE_LIST = 'LIST';
 
   /**
-   * The "normal" attribute type.
-   */
-  const ATTRIBUTE_NORMAL = 'normal_attributes';
-
-  /**
-   * The "category" attribute type.
-   */
-  const ATTRIBUTE_CATEGORY = 'category_attributes';
-
-  /**
-   * The "transactionel" attribute type.
-   */
-  const ATTRIBUTE_TRANSACTIONAL = 'transactional_attributes';
-
-  /**
-   * The "calculated value" attribute type.
-   */
-  const ATTRIBUTE_CALCULATED = 'calculated_value';
-
-  /**
-   * The "global computation" attribute type.
-   */
-  const ATTRIBUTE_COMPUTATION = 'global_computation_value';
-
-  /**
-   * The attribute data type that stores strings.
-   */
-  const ATTRIBUTE_DATA_TYPE_TEXT = 'TEXT';
-
-  /**
-   * The attribute data type that stores numbers.
-   */
-  const ATTRIBUTE_DATA_TYPE_NUMBER = 'NUMBER';
-
-  /**
-   * The attribute data type that stores dates.
-   */
-  const ATTRIBUTE_DATA_TYPE_DATE = 'DATE';
-
-  /**
-   * The attribute data type that stores IDs.
-   */
-  const ATTRIBUTE_DATA_TYPE_ID = 'ID';
-
-  /**
    * Target all the campaign recipients.
    */
   const RECIPIENT_TYPE_ALL = 'all';
@@ -211,7 +171,7 @@ class API {
    * @param $requesthandler
    *   The new request handler object instance.
    *
-   * @return Mailin\API
+   * @return API
    *   The current instance.
    */
   public function setRequesthandler(MR\RequestInterface $requesthandler) {
@@ -360,7 +320,7 @@ class API {
    *   An array of list IDs for which retrieve information.
    *
    * @return array
-   *   An array of the existing lists on success or FALSE.
+   *   An array of the existing lists.
    */
   public function getLists(array $ids = array()) {
     $lists = array();
@@ -368,12 +328,28 @@ class API {
     if ($result = $this->getFolders($ids)) {
       foreach ($result as $fid => $folder) {
         if (!empty($folder['lists'])) {
-          $lists = array_merge($lists, $folder['lists']);
+          // @todo use a specific interface for handling list and folders.
+          // Moreover, the ID parameter is not included in the array describing
+          // the list information. It is only available as array key.
+          $lists += $folder['lists'];
         }
       }//end foreach
     }
 
     return $lists;
+  }
+
+  /**
+   * Get an existing mailing list.
+   *
+   * @param $id
+   *   The list ID to look for.
+   *
+   * @return array
+   *   Information about the the list if exists or FALSE.
+   */
+  public function getList($id) {
+    return ($list = $this->getLists(array($id))) ? reset($list) : FALSE;
   }
 
   /**
@@ -480,52 +456,6 @@ class API {
   }
 
   /**
-   * Get the list of attribute types.
-   *
-   * @return array
-   */
-  public function getAttributeTypes() {
-    return array(
-      'Mailin\\Attribute\\Normal' => self::ATTRIBUTE_NORMAL,
-      'Mailin\\Attribute\\Category' => self::ATTRIBUTE_CATEGORY,
-      'Mailin\\Attribute\\Transactional' => self::ATTRIBUTE_TRANSACTIONAL,
-      'Mailin\\Attribute\\Calculated' => self::ATTRIBUTE_CALCULATED,
-      'Mailin\\Attribute\\Computation' => self::ATTRIBUTE_COMPUTATION,
-    );
-  }
-
-  /**
-   * Check if a given data type is valid for a specific attribute type.
-   */
-  protected function validateAttributeDataType($attributeType, $dataType) {
-    switch ($attributeType) {
-      case self::ATTRIBUTE_NORMAL:
-        return in_array($dataType, array(
-          self::ATTRIBUTE_DATA_TYPE_TEXT,
-          self::ATTRIBUTE_DATA_TYPE_NUMBER,
-          self::ATTRIBUTE_DATA_TYPE_DATE,
-        ));
-
-      case self::ATTRIBUTE_TRANSACTIONAL:
-        return in_array($dataType, array(
-          self::ATTRIBUTE_DATA_TYPE_TEXT,
-          self::ATTRIBUTE_DATA_TYPE_NUMBER,
-          self::ATTRIBUTE_DATA_TYPE_DATE,
-          self::ATTRIBUTE_DATA_TYPE_ID,
-        ));
-
-      case self::ATTRIBUTE_CATEGORY:
-        return is_array($dataType) && !empty($dataType);
-
-      case self::ATTRIBUTE_CALCULATED:
-      case self::ATTRIBUTE_COMPUTATION:
-        return is_string($dataType) && !empty($dataType);
-    }//end switch
-
-    return FALSE;
-  }
-
-  /**
    * Get the existing attributes.
    *
    * @param $types
@@ -539,10 +469,10 @@ class API {
    */
   public function getAttributes(array $types = array()) {
     if (! $types) {
-      $types = $this->getAttributeTypes();
+      $types = MA\Attribute::getAllTypes();
     }
     else {
-      $types = array_intersect($types, $this->getAttributeTypes());
+      $types = array_intersect($types, MA\Attribute::getAllTypes());
     }
 
     // If the $types array was filled with invalid data, it can be empty. In
@@ -565,7 +495,7 @@ class API {
    * clean the attribute structure
    */
   protected function processRawAttributes(&$attributes, $attributeType) {
-    $class = array_search($attributeType, $this->getAttributeTypes());
+    $class = array_search($attributeType, MA\Attribute::getAllTypes());
 
     // An issue in the Mailin DISPLAY-ATTRIBUTES service forces us to use array_map()
     // to make the returned sata match the structure defined in the documentation.
@@ -573,7 +503,7 @@ class API {
 
     foreach ($attributes as &$attribute) {
       // Extra process is required for category attributes, due to the same issue as above.
-      if ($attributeType === self::ATTRIBUTE_CATEGORY) {
+      if ($attributeType === MA\Attribute::ATTRIBUTE_LIST_CATEGORY) {
         if (!empty($attribute['enumeration'])) {
           $attribute['enumeration'] = array_map('reset', $attribute['enumeration']);
         }
@@ -596,13 +526,13 @@ class API {
    * @see http://ressources.mailin.fr/creer-un-attribut/?lang=en
    */
   public function addAttributes(array $attributes) {
-    if ($attributes = array_intersect_key($attributes, array_flip($this->getAttributeTypes()))) {
+    if ($attributes = array_intersect_key($attributes, array_flip(MA\Attribute::getAllTypes()))) {
       $args = array();
 
       foreach ($attributes as $attributeType => $definitions) {
         if (is_array($definitions)) {
           foreach ($definitions as $attribute) {
-            if ($attribute instanceof AttributeInterface && $definition = (string) $attribute) {
+            if ($attribute instanceof MA\AttributeInterface && $definition = (string) $attribute) {
               $args[$attributeType][] = $definition;
             }
           }//end foreach
@@ -635,8 +565,8 @@ class API {
    * @see http://ressources.mailin.fr/supprimer-les-attributs/?lang=en
    */
   public function deleteAttributes(array $attributes) {
-    if ($args = array_intersect_key($attributes, array_flip($this->getAttributeTypes()))) {
-      $callback = function($attribute) { return ($attribute instanceof AttributeInterface) ? $attribute->getName() : $attribute; };
+    if ($args = array_intersect_key($attributes, array_flip(MA\Attribute::getAllTypes()))) {
+      $callback = function($attribute) { return ($attribute instanceof MA\AttributeInterface) ? $attribute->getName() : $attribute; };
 
       foreach ($args as &$arg) {
         $arg = array_map($callback, $arg);
@@ -647,6 +577,78 @@ class API {
     }
 
     return FALSE;
+  }
+
+  /**
+   * Get users details.
+   *
+   * @param $emails
+   *   A list of email addresses.
+   *
+   * @return mixed
+   *   An array of user objects on success or FALSE.
+   *
+   * @see http://ressources.mailin.fr/subscriber-details/?lang=en
+   */
+  public function getUsers(array $emails) {
+    $emails['_separator_'] = ',';
+    $users = array();
+
+    if ($data = $this->query(self::ACTION_USER_DETAILS, array('email' => $emails))->getDataOnSuccess()) {
+      $rc = new \ReflectionClass('Mailin\\User');
+      $rm = new \ReflectionMethod('Mailin\\User', '__construct');
+
+      foreach ($data as $user) {
+        $user = reset($user);
+        $args = array();
+
+        // Build the attributes array.
+        $user['attributes'] = array();
+
+        foreach (MA\Attribute::getAllTypes('user') as $class => $attributeType) {
+          if (!empty($user[$attributeType])) {
+            foreach ($user[$attributeType] as $name => $value) {
+              $user['attributes'][$attributeType][] = new $class(array('name' => $name), $value);
+            }//end foreach
+          }
+        }//end foreach
+
+        foreach ($rm->getParameters() as $parameter) {
+          $name = $parameter->getName();
+
+          if (isset($user[$name])) {
+            $args[] = $user[$name];
+          }
+          elseif ($parameter->isOptional()) {
+            $args[] = $parameter->getDefaultValue();
+          }
+          // We should never go there. Doing so means that the User constructor
+          // needs to be modified to have a default value for the missing parameter.
+          else {
+            continue 2;
+          }
+        }
+
+        $users[] = $rc->newInstanceArgs($args);
+      }//end foreach
+    }
+
+    return $users;
+  }
+
+  /**
+   * Get a specific user.
+   *
+   * @param $email
+   *   The email address.
+   *
+   * @return mixed
+   *   A user object on success or FALSE.
+   *
+   * @see API::getUsers()
+   */
+  public function getUser($email) {
+    return ($result = $this->getUsers(array($email))) ? reset($result) : FALSE;
   }
 
   /**
@@ -733,6 +735,8 @@ class API {
    * @see http://ressources.mailin.fr/ajout-dun-utilisateur/?lang=en
    */
   public function saveUser($email, array $lists, array $attributes = array(), $blacklisted = FALSE) {
+    $lists = array_filter($lists);
+
     if (!$lists) {
       return FALSE;
     }

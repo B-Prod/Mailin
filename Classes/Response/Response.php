@@ -30,7 +30,7 @@ class Response implements ResponseInterface, \ArrayAccess {
    * @inheritdoc
    */
   public function __construct($data) {
-    if (FALSE === ($this->data = json_decode($data, TRUE))) {
+    if (!$this->data = json_decode($data, TRUE)) {
       // Ensure the data property is always an array.
       $this->data = array();
     }
