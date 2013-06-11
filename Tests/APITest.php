@@ -452,10 +452,10 @@ class APITest extends \PHPUnit_Framework_TestCase {
    * @depends testAddList
    */
   public function testSaveUser(array $foldersLists) {
-    $listId = key(reset($foldersLists));
+    list($listId, $listId2, $listId3) = array_keys(reset($foldersLists));
 
     $userEmail = \MailinTestHelper::randomEmail();
-    $userId = $this->mailin->saveUser($userEmail, array($listId));
+    $userId = $this->mailin->saveUser($userEmail, array($listId => TRUE));
     $this->assertTrue(is_numeric($userId), "Creation of user $userEmail failed.");
     $result = $this->mailin->getUserStatus(array($userEmail));
     $this->assertInternalType('array', $result, "Impossible to retrieve user $userEmail related data.");
@@ -464,7 +464,7 @@ class APITest extends \PHPUnit_Framework_TestCase {
 
     // Create now a user who is blacklisted.
     $userEmail2 = \MailinTestHelper::randomEmail();
-    $userId2 = $this->mailin->saveUser($userEmail2, array($listId), array(), TRUE);
+    $userId2 = $this->mailin->saveUser($userEmail2, array($listId => TRUE), array(), TRUE);
     $this->assertTrue(is_numeric($userId2), "Creation of user $userEmail2 failed.");
     $result = $this->mailin->getUserStatus(array($userEmail2));
     $this->assertInternalType('array', $result, "Impossible to retrieve user $userEmail2 related data.");
@@ -481,7 +481,7 @@ class APITest extends \PHPUnit_Framework_TestCase {
     $this->assertCallcount(0);
 
     $userEmail3 = \MailinTestHelper::randomEmail();
-    $userId3 = $this->mailin->saveUser($userEmail3, array($unexistingListId));
+    $userId3 = $this->mailin->saveUser($userEmail3, array($unexistingListId => TRUE));
     $this->assertTrue(is_numeric($userId3), "Creation of user $userEmail3 failed.");
     $user = $this->mailin->getUser($userEmail3);
     $this->assertTrue(is_object($user) && $user instanceof User, "Impossible to retrieve user $userEmail3 related data.");
@@ -489,15 +489,40 @@ class APITest extends \PHPUnit_Framework_TestCase {
     $this->assertCallcount(2);
 
     // Create a user without spécifying any list ID.
-    $userEmail4 = \MailinTestHelper::randomEmail();
-    $this->assertFalse($this->mailin->saveUser($userEmail4, array()), "Creation of user $userEmail4 without list ID should fail.");
-    $this->assertCallcount(0);
-    $this->assertFalse($this->mailin->saveUser($userEmail4, array(0)), "Creation of user $userEmail4 with 0 as list ID should fail.");
-    $this->assertCallcount(0);
-    $this->assertFalse($this->mailin->saveUser($userEmail4, array('')), "Creation of user $userEmail4 with empty string as list ID should fail.");
-    $this->assertCallcount(0);
+    // Those tests were removed since the required state of 'lists' for new
+    // users was changed.
+    //$userEmail4 = \MailinTestHelper::randomEmail();
+    //$this->assertFalse($this->mailin->saveUser($userEmail4, array()), "Creation of user $userEmail4 without list ID should fail.");
+    //$this->assertCallcount();
+    //$this->assertFalse($this->mailin->saveUser($userEmail4, array(0 => TRUE)), "Creation of user $userEmail4 with 0 as list ID should fail.");
+    //$this->assertCallcount();
+    //$this->assertFalse($this->mailin->saveUser($userEmail4, array('' => TRUE)), "Creation of user $userEmail4 with empty string as list ID should fail.");
+    //$this->assertCallcount();
 
-    // @todo save a user registered on multiple lists.
+    // Save a user registered on multiple lists.
+    $userEmail5 = \MailinTestHelper::randomEmail();
+    $userId5 = $this->mailin->saveUser($userEmail5, array($listId => TRUE, $listId2 => TRUE, $listId3 => TRUE));
+    $this->assertTrue(is_numeric($userId5), "Creation of user $userEmail5 registered on multiple lists failed.");
+    $this->assertCallcount();
+
+    // Verify that the created user is registered on the all lists.
+    $user = $this->mailin->getUser($userEmail5);
+    $this->assertTrue(is_object($user) && $user instanceof User, "Impossible to retrieve user $userEmail5 related data.");
+    $retrievedLists = array_keys($user->getLists());
+    sort($retrievedLists);
+    $savedLists = array($listId, $listId2, $listId3);
+    sort($savedLists);
+    $this->assertEquals($retrievedLists, $savedLists, 'Fetched user lists does not match the ones that were saved.');
+    $this->assertCallcount();
+
+    // Unsubscribe the user from some lists.
+    $userId5 = $this->mailin->saveUser($userEmail5, array($listId => FALSE, $listId2 => FALSE));
+    $this->assertTrue(is_numeric($userId5), "Creation of user $userEmail5 registered on multiple lists failed.");
+    $this->assertCallcount();
+    $user = $this->mailin->getUser($userEmail5);
+    $this->assertTrue(is_object($user) && $user instanceof User, "Impossible to retrieve user $userEmail5 related data.");
+    $this->assertEquals(array_keys($user->getLists()), array($listId3), 'Fetched user lists does not match the one that was not removed.');
+    $this->assertCallcount();
 
     return array(
       $userEmail => array('id' => $userId, 'listId' => $listId, 'status' => 0),

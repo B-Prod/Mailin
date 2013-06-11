@@ -642,7 +642,7 @@ class API {
    * @param $email
    *   The email address.
    *
-   * @return mixed
+   * @return User
    *   A user object on success or FALSE.
    *
    * @see API::getUsers()
@@ -724,8 +724,8 @@ class API {
    * @param $email
    *   The user e-mail address.
    * @param $lists
-   *   An array of the list IDs the user should be subscribed to. At least one list
-   *   is required.
+   *   An array whose keys are list ids and values a boolean indicating whether
+   *   the user should be added (TRUE) or removed (FALSE) to/from the list.
    * @param $attributes
    *   An array of attributes to store into Mailin server, as part of the
    *   user defined fields.
@@ -735,17 +735,19 @@ class API {
    * @see http://ressources.mailin.fr/ajout-dun-utilisateur/?lang=en
    */
   public function saveUser($email, array $lists, array $attributes = array(), $blacklisted = FALSE) {
-    $lists = array_filter($lists);
-
-    if (!$lists) {
-      return FALSE;
-    }
+    // New user need to subscribe to at least a list. But checking if
+    // the user is new or not requires an extra call to Mailin server,
+    // that is not a valid approach.
+    // And we cannot directly return FALSE anymore when there are no list to
+    // add since the "listid_unlink" parameter was added to this service.
+    //if (!$add) {
+    //  return FALSE;
+    //}
 
     $query = array(
       'email' => $email,
       'blacklisted' => (int) $blacklisted,
-      'listid' => $lists,
-    );
+    ) + $this->convertListsToQuery($lists);
 
     if ($attributes) {
       $query['attributes_name'] = implode('|', array_keys($attributes));
@@ -765,12 +767,31 @@ class API {
    *   An array of users. Each user array should at least contain an "email" key
    *   containing his e-mail address.
    * @param $lists
-   *   An array of the list IDs the user should be subscribed to.
+   *   An array whose keys are list ids and values a boolean indicating whether
+   *   the user should be added (TRUE) or removed (FALSE) to/from the list.
    *
    * @see http://ressources.mailin.fr/ajout-de-plusieurs-utilisateurs/?lang=en
    */
   public function saveUsers(array $users, array $lists = array()) {
-    return $this->query(self::ACTION_USER_ADD_MULTIPLE, array('attributes' => json_encode($users), 'listid' => $lists))->getResult() === 'OK';
+    $query = array('attributes' => json_encode($users)) + $this->convertListsToQuery($lists);
+    return $this->query(self::ACTION_USER_ADD_MULTIPLE, $query)->getResult() === 'OK';
+  }
+
+  /**
+   * Affect each list to either the "add" or "remove" parameter.
+   */
+  protected function convertListsToQuery(array $lists) {
+    $query = array();
+
+    if ($add = array_filter($lists)) {
+      $query['listid'] = array_keys($add);
+    }
+
+    if ($delete = array_diff_key($lists, $add)) {
+      $query['listid_unlink'] = array_keys($delete);
+    }
+
+    return $query;
   }
 
 }

@@ -59,6 +59,7 @@ abstract class Log {
         'end' => microtime(TRUE),
         'status' => $response->isSuccessful(),
         'error' => $response->getErrorMessage(),
+        'data' => $response->getData(),
       );
 
       // Calculate the API call duration in ms.
@@ -84,13 +85,36 @@ abstract class Log {
    * @return string
    */
   public static function getLastOperationError() {
+    $error = getLastOperationProperty('error');
+    return isset($error) ? $error : '';
+  }
+
+  /**
+   * Get the last operation response dzta.
+   *
+   * @return array
+   */
+  public static function getLastOperationData() {
+    $data = getLastOperationProperty('data');
+    return isset($data) ? $data : array();
+  }
+
+  /**
+   * Get some data from the last operation.
+   *
+   * @param $name
+   *   The property name.
+   *
+   * @return mixed
+   */
+  protected static function getLastOperationProperty($name) {
     $operation = end(self::$apiCalls);
 
-    if (isset($operation['error']) && strlen($operation['error'])) {
-      return $operation['error'];
+    if (isset($operation[$name])) {
+      return $operation[$name];
     }
 
-    return '';
+    return NULL;
   }
 
 }
