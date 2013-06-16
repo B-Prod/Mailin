@@ -225,6 +225,7 @@ class API {
    *   An array of the existing folders and lists that match the criteria.
    */
   public function getFolders(array $ids = array()) {
+    $ids['_separator_'] = ',';
     return $this->query(self::ACTION_FOLDER_GET, array('ids' => $ids))->getDataOnSuccess();
   }
 
@@ -326,12 +327,18 @@ class API {
     $lists = array();
 
     if ($result = $this->getFolders($ids)) {
-      foreach ($result as $fid => $folder) {
-        if (!empty($folder['lists'])) {
-          // @todo use a specific interface for handling list and folders.
-          // Moreover, the ID parameter is not included in the array describing
-          // the list information. It is only available as array key.
-          $lists += $folder['lists'];
+      foreach ($result as $id => $list) {
+        if (!$ids) {
+          if (!empty($list['lists'])) {
+            // @todo use a specific interface for handling list and folders.
+            // Moreover, the ID parameter is not included in the array describing
+            // the list information. It is only available as array key.
+            $lists += $list['lists'];
+          }
+        }
+        elseif ($list['type'] === self::TYPE_LIST) {
+          $list['id'] = $id;
+          $lists[$id] = $list;
         }
       }//end foreach
     }

@@ -85,18 +85,28 @@ abstract class Log {
    * @return string
    */
   public static function getLastOperationError() {
-    $error = getLastOperationProperty('error');
+    $error = self::getLastOperationProperty('error');
     return isset($error) ? $error : '';
   }
 
   /**
-   * Get the last operation response dzta.
+   * Get the last operation response data.
    *
    * @return array
    */
   public static function getLastOperationData() {
-    $data = getLastOperationProperty('data');
+    $data = self::getLastOperationProperty('data');
     return isset($data) ? $data : array();
+  }
+
+  /**
+   * Get the last operation response status.
+   *
+   * @return boolean
+   *   If there was no operation before, NULL is returned instead of a boolean.
+   */
+  public static function getLastOperationStatus() {
+    return self::getLastOperationProperty('status');
   }
 
   /**
