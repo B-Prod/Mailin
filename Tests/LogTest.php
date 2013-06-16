@@ -7,9 +7,9 @@
 
 namespace Mailin\Tests;
 
-use Mailin\Tests\MailinAPITest;
-use Mailin\MailinAPI;
-use Mailin\MailinLog;
+use Mailin\Tests\APITest as MailinTest;
+use Mailin\API as Mailin;
+use Mailin\Log;
 
 /**
  * Test class for the Mailin Log class.
@@ -17,24 +17,24 @@ use Mailin\MailinLog;
  * @backupGlobals disabled
  * @backupStaticAttributes disabled
  */
-class MailinLogTest extends \PHPUnit_Framework_TestCase {
+class LogTest extends \PHPUnit_Framework_TestCase {
 
   /**
    * The Mailin API instance.
    *
-   * @var MailinAPI
+   * @var Mailin\API
    */
-  protected $mailinAPI;
+  protected $mailin;
 
   /**
-  * The Mailin\MailinLog Reflection Class.
+  * The Mailin\Log Reflection Class.
   *
   * @var ReflectionClass
   */
   protected static $rc;
 
   /**
-   * Store the default values of the Mailin\MailinLog static properties.
+   * Store the default values of the Mailin\Log static properties.
    *
    * @var array
    */
@@ -44,7 +44,7 @@ class MailinLogTest extends \PHPUnit_Framework_TestCase {
    * @inheritdoc
    */
   protected function setUp() {
-    $this->mailinAPI = new MailinAPI(MailinAPITest::API_KEY);
+    $this->mailin = new Mailin(MailinTest::API_KEY);
     self::ensureDefaultProperties();
   }
 
@@ -60,7 +60,7 @@ class MailinLogTest extends \PHPUnit_Framework_TestCase {
    */
   public static function getReflectionClass() {
     if (!isset(self::$rc)) {
-      self::$rc = new \ReflectionClass('Mailin\MailinLog');
+      self::$rc = new \ReflectionClass('Mailin\Log');
     }
 
     return self::$rc;

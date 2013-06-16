@@ -7,12 +7,12 @@
 
 namespace Mailin;
 
-use Mailin\Response\MailinResponseInterface;
+use Mailin\Response\ResponseInterface;
 
 /**
  * The Mailin Log class.
  */
-abstract class MailinLog {
+abstract class Log {
 
   /**
    * Store the API calls debug information.
@@ -52,13 +52,14 @@ abstract class MailinLog {
    * @param $response
    *   The API call response.
    */
-  public static function endApiCall(MailinResponseInterface $response) {
+  public static function endApiCall(ResponseInterface $response) {
     if (isset(self::$references['apiCall'])) {
       $current = & self::$references['apiCall'];
       $current += array(
         'end' => microtime(TRUE),
         'status' => $response->isSuccessful(),
         'error' => $response->getErrorMessage(),
+        'data' => $response->getData(),
       );
 
       // Calculate the API call duration in ms.
@@ -76,6 +77,54 @@ abstract class MailinLog {
    */
   public static function countApiCalls() {
     return sizeof(self::$apiCalls);
+  }
+
+  /**
+   * Get the error message related to the last operation.
+   *
+   * @return string
+   */
+  public static function getLastOperationError() {
+    $error = self::getLastOperationProperty('error');
+    return isset($error) ? $error : '';
+  }
+
+  /**
+   * Get the last operation response data.
+   *
+   * @return array
+   */
+  public static function getLastOperationData() {
+    $data = self::getLastOperationProperty('data');
+    return isset($data) ? $data : array();
+  }
+
+  /**
+   * Get the last operation response status.
+   *
+   * @return boolean
+   *   If there was no operation before, NULL is returned instead of a boolean.
+   */
+  public static function getLastOperationStatus() {
+    return self::getLastOperationProperty('status');
+  }
+
+  /**
+   * Get some data from the last operation.
+   *
+   * @param $name
+   *   The property name.
+   *
+   * @return mixed
+   */
+  protected static function getLastOperationProperty($name) {
+    $operation = end(self::$apiCalls);
+
+    if (isset($operation[$name])) {
+      return $operation[$name];
+    }
+
+    return NULL;
   }
 
 }

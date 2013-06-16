@@ -7,12 +7,10 @@
 
 namespace Mailin\Response;
 
-use Mailin\Response\MailinResponseInterface;
-
 /**
  * The Mailin Response class.
  */
-class MailinResponse implements MailinResponseInterface, \ArrayAccess {
+class Response implements ResponseInterface, \ArrayAccess {
 
   /**
    * The response parsed data.
@@ -32,7 +30,7 @@ class MailinResponse implements MailinResponseInterface, \ArrayAccess {
    * @inheritdoc
    */
   public function __construct($data) {
-    if (FALSE === ($this->data = json_decode($data, TRUE))) {
+    if (!$this->data = json_decode($data, TRUE)) {
       // Ensure the data property is always an array.
       $this->data = array();
     }

@@ -6,4 +6,4 @@
  */
 
 include dirname(__DIR__) . '/mailin.php';
-include __DIR__ . '/Utils/MailinTestHelper.inc';
+include __DIR__ . '/Utils/MailinTestHelper.php';

@@ -6,10 +6,7 @@ Provides integration with [Mailin](http://www.mailin.fr/), an email delivery ser
 Current release
 -------------
 
-* Version: alpha-0.2
-* Notes:
-  * Do not use this release on a production site.
-  * This version does not allow to remove attributes.
+* Version: 1.0
 
 Requirements
 --------------------
@@ -20,6 +17,23 @@ Requirements
   <dt>Mailin account</dt>
   <dd>You can create one for free</dd>
 </dl>
+
+Available services
+------------------
+
+* ADDFOLDER
+* DELETE-FOLDER
+* DISPLAY-FOLDERS-LISTS
+* NEWLIST
+* DISPLAY-ATTRIBUTES
+* CREATE-ATTRIBUTES
+* DELETE-ATTRIBUTES
+* SUBSCRIBER-DETAILS
+* USERS-STATUS
+* USERCREADIT
+* MULTI-USERCREADIT
+* EMAILBLACKLIST
+* EMAILUNBLACKLIST
 
 Unavailable services
 --------------------

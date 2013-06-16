@@ -7,7 +7,7 @@
 
 namespace Mailin\Request;
 
-use Mailin\Response\MailinResponse;
+use Mailin\Response\Response;
 
 /**
  * The Mailin Request CURL class.
@@ -17,7 +17,7 @@ use Mailin\Response\MailinResponse;
  * request class and tell Mailin API instance to use yours within the
  * "setRequesthandler" method.
  */
-class MailinRequestCurl implements MailinRequestInterface {
+class Curl implements RequestInterface {
 
   /**
    * The Mailin Web services URL.
@@ -44,7 +44,7 @@ class MailinRequestCurl implements MailinRequestInterface {
       CURLOPT_RETURNTRANSFER => 1,
     ));
 
-    $response = new MailinResponse(curl_exec($ch));
+    $response = new Response(curl_exec($ch));
     curl_close($ch);
 
     return $response;
