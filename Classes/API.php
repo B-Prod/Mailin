@@ -192,17 +192,22 @@ class API {
   protected function query($action, array $query = array()) {
     foreach ($query as $key => $value) {
       $separator = '|';
+      $replacement = ' ';
 
-      if (is_array($value) && isset($value['_separator_'])) {
-        $separator = $value['_separator_'];
-        unset($value['_separator_']);
+      if (is_array($value)) {
+        foreach (array('separator', 'replacement') as $key) {
+          if (isset($value['_' . $key . '_'])) {
+            ${$key} = $value['_' . $key . '_'];
+            unset($value['_' . $key . '_']);
+          }
+        }//end foreach
       }
 
       if (is_null($value) || (is_string($value) && !strlen($value)) || (is_array($value) && !$value)) {
         unset($query[$key]);
       }
       elseif (is_array($value)) {
-        $query[$key] = implode($separator, $value);
+        $query[$key] = implode($separator, str_replace($separator, $replacement, $value));
       }
     }//end foreach
 
